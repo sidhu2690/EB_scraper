@@ -2,55 +2,86 @@ import pandas as pd
 import joblib
 from sentence_transformers import SentenceTransformer
 
-# ===========================
-# Load Model + Classifier
-# ===========================
 
-print("Loading sentence transformer...")
-embedder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+class PostFilter:
 
-print("Loading classifier...")
-clf = joblib.load("usefulness_classifier.pkl")
+    def __init__(self, input_csv="posts.csv", output_csv="filtered_posts.csv", classifier_file="usefulness_classifier.pkl"):
+        self.input_csv = input_csv
+        self.output_csv = output_csv
+        self.classifier_file = classifier_file
 
-# ===========================
-# Load posts.csv
-# ===========================
+        # Load MiniLM model
+        print("⚙️ Loading MiniLM sentence transformer...")
+        self.embedder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
-df = pd.read_csv("posts.csv")
+        # Load classifier
+        print("⚙️ Loading usefulness classifier...")
+        self.clf = joblib.load(self.classifier_file)
 
-if df.empty:
-    print("posts.csv is empty — nothing to filter.")
-    df_filtered = pd.DataFrame(columns=["Title", "Link"])
-    df_filtered.to_csv("filtered_posts.csv", index=False)
-    exit(0)
+    # ====================== LOAD POSTS ======================
 
-print(f"Loaded {len(df)} posts from posts.csv")
+    def load_posts(self):
+        print(f"\n📥 Loading posts from {self.input_csv}...")
+        df = pd.read_csv(self.input_csv)
 
-# ===========================
-# Embed & Predict
-# ===========================
+        if df.empty:
+            print("⚠️ posts.csv is empty — nothing to filter.")
+            return pd.DataFrame(columns=["Title", "Link", "Unique_ID"])
 
-titles = df["Title"].astype(str).tolist()
+        print(f"📊 Loaded {len(df)} posts.")
+        return df
 
-print("Creating embeddings...")
-embeddings = embedder.encode(titles, batch_size=32, show_progress_bar=False)
+    # ====================== EMBED & PREDICT ======================
 
-print("Predicting useful posts...")
-preds = clf.predict(embeddings)
+    def predict_usefulness(self, df):
+        print("\n🧠 Creating embeddings...")
+        titles = df["Title"].astype(str).tolist()
+        embeddings = self.embedder.encode(titles, batch_size=32, show_progress_bar=False)
 
-df["Useful"] = preds
+        print("🔍 Predicting usefulness...")
+        preds = self.clf.predict(embeddings)
+        df["Useful"] = preds
+        return df
 
-# ===========================
-# Keep Only Useful Posts
-# ===========================
+    # ====================== FILTER & KEEP UNIQUE ======================
 
-filtered = df[df["Useful"] == 1][["Title", "Link"]]
+    def filter_and_deduplicate(self, df):
+        print("\n🔎 Filtering only useful posts...")
+        filtered = df[df["Useful"] == 1][["Title", "Link", "Unique_ID"]]
 
-print(f"Found {len(filtered)} useful posts out of {len(df)}")
+        print(f"📉 Before removing duplicates: {len(filtered)} posts")
 
-# ===========================
-# Save filtered CSV
-# ===========================
+        # Remove duplicates based on Unique_ID (like your scraper logic)
+        filtered = filtered.drop_duplicates(subset="Unique_ID")
 
-filtered.to_csv("filtered_posts.csv", index=False)
-print("Saved filtered_posts.csv successfully!")
+        print(f"📈 After removing duplicates: {len(filtered)} posts remain")
+        return filtered
+
+    # ====================== SAVE ======================
+
+    def save_filtered(self, filtered_df):
+        filtered_df.to_csv(self.output_csv, index=False)
+        print(f"\n💾 Saved filtered posts → {self.output_csv}")
+
+    # ====================== RUN FULL PIPELINE ======================
+
+    def run(self):
+        print("\n🚀 Starting ML Filtering Pipeline...")
+
+        df = self.load_posts()
+
+        if df.empty:
+            self.save_filtered(df)
+            return
+
+        df = self.predict_usefulness(df)
+        filtered = self.filter_and_deduplicate(df)
+        self.save_filtered(filtered)
+
+        print("\n✅ Filtering Completed Successfully!\n")
+
+
+# ====================== MAIN EXECUTION ======================
+
+if __name__ == "__main__":
+    PostFilter().run()
