@@ -1,6 +1,1 @@
 requests
-pandas
-joblib
-sentence-transformers
-scikit-learn
-numpy
