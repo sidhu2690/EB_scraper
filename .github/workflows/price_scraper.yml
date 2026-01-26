@@ -56,9 +56,7 @@ jobs:
           SCRAPER_API_KEY_5: ${{ secrets.SCRAPER_API_KEY_5 }}
           SCRAPER_API_KEY_6: ${{ secrets.SCRAPER_API_KEY_6 }}
           SCRAPER_API_KEY_7: ${{ secrets.SCRAPER_API_KEY_7 }}
-          SCRAPER_API_KEY_8: ${{ secrets.SCRAPER_API_KEY_8 }}
-          SCRAPER_API_KEY_9: ${{ secrets.SCRAPER_API_KEY_9 }}
-          SCRAPER_API_KEY_10: ${{ secrets.SCRAPER_API_KEY_10 }}
+
         run: python UnifiedPriceScraper.py
 
       - name: Upload debug screenshots
