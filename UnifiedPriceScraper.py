@@ -17,7 +17,7 @@ class ProductComparison:
     amazon_link: str = ""
     ebazaar_link: str = ""
 
-class UnifiedPriceScraper:
+class UnifiedScraper:
     def __init__(self):
         self.browser = None
         self.page = None
@@ -100,17 +100,13 @@ class UnifiedPriceScraper:
                 let sellingPrice = '';
                 let mrp = '';
                 
-                // Get ALL prices on page and extract by position/style
                 const priceContainer = document.querySelector('.product-info-price, .price-box, .product-info-main');
                 
                 if (priceContainer) {
-                    // Get all span elements with $ sign
                     const allText = priceContainer.innerText;
                     const priceMatches = allText.match(/\\$[\\d,]+/g);
-
                     
                     if (priceMatches && priceMatches.length >= 2) {
-                        // First price is selling ($355), second is MRP ($470)
                         sellingPrice = priceMatches[0];
                         mrp = priceMatches[1];
                     } else if (priceMatches && priceMatches.length === 1) {
@@ -118,7 +114,6 @@ class UnifiedPriceScraper:
                     }
                 }
                 
-                // Fallback: Try specific selectors
                 if (!sellingPrice) {
                     const sellingEl = document.querySelector('[data-price-type="finalPrice"]');
                     if (sellingEl) {
@@ -141,3 +136,17 @@ class UnifiedPriceScraper:
             return data.get('mrp') or "N/A", data.get('sellingPrice') or "N/A"
         except:
             return "Error", "Error"
+
+
+def main():
+    # Run scraper
+    scraper = UnifiedScraper()
+    df_output = asyncio.run(scraper.run('price/input_links.csv'))
+    
+    # Save output
+    df_output.to_csv("price/data.csv", index=False)
+    print(f"Done. Saved {len(df_output)} products to price/data.csv")
+
+
+if __name__ == "__main__":
+    main()
