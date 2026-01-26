@@ -1,7 +1,3 @@
-"""
-Amazon Laptop Scraper - Simple Version
-"""
-
 import asyncio
 import random
 import re
@@ -18,7 +14,6 @@ try:
 except ImportError:
     STEALTH_AVAILABLE = False
 
-
 @dataclass
 class Laptop:
     rank: str = ""
@@ -29,9 +24,8 @@ class Laptop:
     url: str = ""
     asin: str = ""
 
-
 class AmazonScraper:
-    URL = "https://www.amazon.com/gp/bestsellers/amazon-renewed/21614632011"
+    BASE_URL = "https://www.amazon.com/gp/bestsellers/amazon-renewed/21614632011"
     
     USER_AGENTS = [
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -43,7 +37,7 @@ class AmazonScraper:
         self.browser = None
         self.page = None
 
-    async def run(self, max_results: int = 50) -> pd.DataFrame:
+    async def run(self, max_results: int = 100) -> pd.DataFrame:
         """Main scraping function"""
         laptops = []
         
@@ -51,16 +45,24 @@ class AmazonScraper:
             await self._setup_browser(p)
             
             print(f"🛒 Scraping Amazon Best Sellers Laptops...")
-            print(f"🎯 Target: {max_results} laptops")
+            print(f"🎯 Target: {max_results} laptops from 2 pages")
             
             # Scrape page 1
-            laptops.extend(await self._scrape_page(self.URL, 1))
+            page1_url = self.BASE_URL
+            page1_laptops = await self._scrape_page(page1_url, 1)
+            laptops.extend(page1_laptops)
+            page1_count = len(page1_laptops)
             
-            # If page 1 doesn't have enough, don't save
-            if len(laptops) < max_results:
-                print(f"⚠️ Page 1 only has {len(laptops)} laptops, need {max_results}. Not saving.")
-                await self.browser.close()
-                return pd.DataFrame()
+            # Add delay between pages to avoid detection
+            await self.page.wait_for_timeout(random.randint(2000, 4000))
+            
+            # Scrape page 2
+            page2_url = f"{self.BASE_URL}?pg=2"
+            page2_laptops = await self._scrape_page(page2_url, 2)
+            laptops.extend(page2_laptops)
+            page2_count = len(page2_laptops)
+            
+            print(f"📊 Total: Page 1 ({page1_count}) + Page 2 ({page2_count}) = {len(laptops)} laptops")
             
             await self.browser.close()
         
@@ -73,14 +75,15 @@ class AmazonScraper:
                 seen.add(key)
                 unique_laptops.append(laptop)
         
-        # Convert to DataFrame
-        if unique_laptops:
-            df = pd.DataFrame([asdict(l) for l in unique_laptops[:max_results]])
-            print(f"✅ Found {len(df)} laptops")
-            return df
+        # Only save if we have exactly max_results (100)
+        if len(unique_laptops) < max_results:
+            print(f"⚠️ Only found {len(unique_laptops)} unique laptops, need {max_results}. Not saving.")
+            return pd.DataFrame()
         
-        print("❌ No laptops found")
-        return pd.DataFrame()
+        # Convert to DataFrame
+        df = pd.DataFrame([asdict(l) for l in unique_laptops[:max_results]])
+        print(f"✅ Got {len(df)} laptops")
+        return df
 
     async def _setup_browser(self, playwright):
         """Setup browser with stealth"""
@@ -133,7 +136,7 @@ class AmazonScraper:
         await self._scroll()
         
         # Extract laptops
-        laptops = await self._extract_laptops()
+        laptops = await self._extract_laptops(page_num)
         print(f"   Found {len(laptops)} laptops on page {page_num}")
         
         return laptops
@@ -157,7 +160,7 @@ class AmazonScraper:
             await self.page.wait_for_timeout(300)
         await self.page.wait_for_timeout(2000)
 
-    async def _extract_laptops(self) -> List[Laptop]:
+    async def _extract_laptops(self, page_num: int) -> List[Laptop]:
         """Extract laptop data from page"""
         try:
             data = await self.page.evaluate('''() => {
@@ -225,9 +228,12 @@ class AmazonScraper:
             }''')
             
             laptops = []
+            # Calculate base index for rank (page 1 = 0, page 2 = 50)
+            base_idx = (page_num - 1) * 50
+            
             for idx, p in enumerate(data, 1):
                 laptops.append(Laptop(
-                    rank=p.get('rank') or str(idx),
+                    rank=p.get('rank') or str(base_idx + idx),
                     name=p.get('name', ''),
                     rating=p.get('rating', ''),
                     reviews_count=p.get('reviews', ''),
@@ -242,20 +248,18 @@ class AmazonScraper:
             print(f"⚠️ Extraction error: {e}")
             return []
 
-
 def main():
     """Main entry point"""
     scraper = AmazonScraper()
-    df = asyncio.run(scraper.run(max_results=50))
+    df = asyncio.run(scraper.run(max_results=100))
     
-    # Only save if we have data
-    if len(df) > 0:
+    # Only save if we have 100 results
+    if len(df) >= 100:
         os.makedirs("data", exist_ok=True)
         df.to_csv("data/data.csv", index=False)
         print(f"💾 Saved data/data.csv ({len(df)} rows)")
     else:
-        print("⚠️ No data to save")
-
+        print("⚠️ Did not get 100 laptops. Data not saved.")
 
 if __name__ == "__main__":
     main()
