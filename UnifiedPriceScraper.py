@@ -29,7 +29,7 @@ class UnifiedScraper:
         
         # Load all API keys from environment
         self.api_keys = []
-        for i in range(1, 11):  # SCRAPER_API_KEY_1 to SCRAPER_API_KEY_10
+        for i in range(1, 8):  # SCRAPER_API_KEY_1 to SCRAPER_API_KEY_10
             key = os.environ.get(f'SCRAPER_API_KEY_{i}', '')
             if key:
                 self.api_keys.append(key)
