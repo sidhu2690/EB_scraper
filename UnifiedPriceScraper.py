@@ -45,8 +45,8 @@ class UnifiedScraper:
                 
                 if pd.notna(row['ebazaar_link']) and row['ebazaar_link'].strip():
                     mrp, selling = await self._scrape_ebazaar(row['ebazaar_link'])
-                    product.ebazaar_mrp = mrp
-                    product.ebazaar_selling_price = selling
+                    product.ebazaar_mrp = selling
+                    product.ebazaar_selling_price = mrp
                 
                 products.append(product)
                 print(f"Model {idx + 1} done")
