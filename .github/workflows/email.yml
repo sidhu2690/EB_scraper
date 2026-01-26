@@ -1,7 +1,7 @@
 name: EB Scraper with Email Notification
 on:
   schedule:
-    - cron: "0 * * * *" 
+    - cron: "0 * * * *"  # Runs every hour
   workflow_dispatch:       # Manual trigger button
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
         server_port: 587
         username: ${{ secrets.EMAIL_USERNAME }}
         password: ${{ secrets.EMAIL_PASSWORD }}
-        subject: EB Scraper Data Update - ${{ github.run_number }}
+        subject: EB Scraper Data Update
         to: ${{ secrets.RECIPIENT_EMAIL }}
         cc: ${{ secrets.CC_EMAIL }}
         from: EB Scraper Bot
@@ -53,11 +53,6 @@ jobs:
           Hi,
           
           This is an automated email from your EB Scraper workflow.
-          
-          Run Details:
-          - Workflow Run: #${{ github.run_number }}
-          - Date: ${{ github.event.head_commit.timestamp }}
-          - Repository: ${{ github.repository }}
           
           Please find the latest scraped data attached.
           
@@ -86,15 +81,10 @@ jobs:
         server_port: 587
         username: ${{ secrets.EMAIL_USERNAME }}
         password: ${{ secrets.EMAIL_PASSWORD }}
-        subject: ⚠️ EB Scraper Failed - ${{ github.run_number }}
+        subject: ⚠️ EB Scraper Failed
         to: ${{ secrets.CC_EMAIL }}
         from: EB Scraper Bot
         body: |
           Warning: The EB scraper workflow has failed.
           
-          Run Details:
-          - Workflow Run: #${{ github.run_number }}
-          - Repository: ${{ github.repository }}
-          - Check the logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          
-          Please investigate the issue.
+          Please check the logs in GitHub Actions to investigate the issue.
