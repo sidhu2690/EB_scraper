@@ -27,8 +27,16 @@ class UnifiedScraper:
         self.debug_mode = debug_mode
         self.debug_dir = "debug_screenshots"
         
-        # ScraperAPI key from environment
-        self.scraper_api_key = os.environ.get('SCRAPER_API_KEY', '')
+        # Load all API keys from environment
+        self.api_keys = []
+        for i in range(1, 11):  # SCRAPER_API_KEY_1 to SCRAPER_API_KEY_10
+            key = os.environ.get(f'SCRAPER_API_KEY_{i}', '')
+            if key:
+                self.api_keys.append(key)
+        
+        # Track current key index and failed keys
+        self.current_key_index = 0
+        self.failed_keys = set()
         
         if self.debug_mode:
             os.makedirs(self.debug_dir, exist_ok=True)
@@ -38,9 +46,47 @@ class UnifiedScraper:
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         ]
 
+    def _get_next_api_key(self):
+        """Round-robin through available API keys"""
+        if not self.api_keys:
+            return None
+        
+        # Try to find a working key
+        attempts = 0
+        while attempts < len(self.api_keys):
+            key = self.api_keys[self.current_key_index]
+            key_id = self.current_key_index + 1
+            
+            # Move to next key for next call
+            self.current_key_index = (self.current_key_index + 1) % len(self.api_keys)
+            
+            # Skip if this key has failed
+            if key_id in self.failed_keys:
+                attempts += 1
+                continue
+            
+            return key, key_id
+        
+        # All keys failed, reset and try again
+        print("  ⚠ All API keys exhausted, resetting...")
+        self.failed_keys.clear()
+        key = self.api_keys[0]
+        self.current_key_index = 1 % len(self.api_keys)
+        return key, 1
+
+    def _mark_key_failed(self, key_id: int):
+        """Mark an API key as failed (quota exceeded)"""
+        self.failed_keys.add(key_id)
+        print(f"  ⚠ API Key #{key_id} marked as exhausted")
+
     async def run(self, input_csv: str) -> pd.DataFrame:
         df_input = pd.read_csv(input_csv)
         products = []
+        
+        print(f"\n🔑 Loaded {len(self.api_keys)} API keys")
+        
+        if not self.api_keys:
+            print("⚠️ No API keys found! Add SCRAPER_API_KEY_1, SCRAPER_API_KEY_2, etc.")
         
         async with async_playwright() as p:
             await self._setup_browser(p)
@@ -63,7 +109,7 @@ class UnifiedScraper:
                 
                 await asyncio.sleep(random.uniform(1, 2))
                 
-                # Scrape eBazaar using Playwright
+                # Scrape eBazaar using Playwright (FREE)
                 if pd.notna(row.get('ebazaar_link')) and str(row['ebazaar_link']).strip():
                     mrp, selling = await self._scrape_ebazaar(row['ebazaar_link'], idx)
                     product.ebazaar_mrp = mrp
@@ -91,41 +137,58 @@ class UnifiedScraper:
         )
 
     async def _scrape_amazon(self, url: str, idx: int) -> tuple:
-        """Scrape Amazon using ScraperAPI to bypass CAPTCHA"""
+        """Scrape Amazon using ScraperAPI with multiple keys"""
         
-        if not self.scraper_api_key:
-            print("  ⚠ No SCRAPER_API_KEY found, trying direct...")
-            return await self._scrape_amazon_direct(url, idx)
+        if not self.api_keys:
+            print("  ⚠ No API keys available")
+            return "No API Key", "No API Key"
         
-        try:
-            # ScraperAPI endpoint
-            api_url = f"http://api.scraperapi.com?api_key={self.scraper_api_key}&url={url}&render=true"
+        # Try up to 3 different keys
+        max_retries = min(3, len(self.api_keys))
+        
+        for attempt in range(max_retries):
+            result = self._get_next_api_key()
+            if result is None:
+                return "No API Key", "No API Key"
             
-            print("  → Fetching via ScraperAPI...")
+            api_key, key_id = result
             
-            async with httpx.AsyncClient(timeout=90) as client:
-                response = await client.get(api_url)
+            try:
+                api_url = f"http://api.scraperapi.com?api_key={api_key}&url={url}&render=true"
                 
-                if response.status_code != 200:
-                    print(f"  ⚠ ScraperAPI returned {response.status_code}")
-                    return "Error", "Error"
+                print(f"  → Using API Key #{key_id}...")
                 
-                html = response.text
-                
-                # Check for CAPTCHA
-                if 'captcha' in html.lower():
-                    print("  ⚠ CAPTCHA still detected")
-                    return "CAPTCHA", "CAPTCHA"
-                
-                # Parse prices from HTML
-                mrp, selling = self._parse_amazon_prices(html)
-                
-                print(f"  Amazon: MRP={mrp}, Selling={selling}")
-                return mrp, selling
-                
-        except Exception as e:
-            print(f"  ✗ Amazon error: {str(e)[:80]}")
-            return "Error", "Error"
+                async with httpx.AsyncClient(timeout=90) as client:
+                    response = await client.get(api_url)
+                    
+                    # Check for quota exceeded (403 or 429)
+                    if response.status_code in [403, 429]:
+                        print(f"  ⚠ API Key #{key_id} quota exceeded")
+                        self._mark_key_failed(key_id)
+                        continue
+                    
+                    if response.status_code != 200:
+                        print(f"  ⚠ ScraperAPI returned {response.status_code}")
+                        continue
+                    
+                    html = response.text
+                    
+                    # Check for CAPTCHA
+                    if 'captcha' in html.lower():
+                        print("  ⚠ CAPTCHA detected")
+                        return "CAPTCHA", "CAPTCHA"
+                    
+                    # Parse prices from HTML
+                    mrp, selling = self._parse_amazon_prices(html)
+                    
+                    print(f"  Amazon: MRP={mrp}, Selling={selling}")
+                    return mrp, selling
+                    
+            except Exception as e:
+                print(f"  ⚠ Attempt {attempt + 1} failed: {str(e)[:50]}")
+                continue
+        
+        return "Error", "Error"
 
     def _parse_amazon_prices(self, html: str) -> tuple:
         """Parse Amazon prices from HTML"""
@@ -150,7 +213,6 @@ class UnifiedScraper:
             if el:
                 text = el.get_text(strip=True)
                 if text and ('$' in text or '₹' in text):
-                    # Check it's not a struck-through price
                     parent = el.find_parent(attrs={'data-a-strike': 'true'})
                     if not parent:
                         parent = el.find_parent(class_='a-text-price')
@@ -174,55 +236,13 @@ class UnifiedScraper:
                     mrp = text
                     break
         
-        # If no MRP, use selling price
         if mrp == "N/A" and selling_price != "N/A":
             mrp = selling_price
         
         return mrp, selling_price
 
-    async def _scrape_amazon_direct(self, url: str, idx: int) -> tuple:
-        """Fallback: Direct scraping (likely to get CAPTCHA)"""
-        context = await self.browser.new_context(
-            viewport={"width": 1920, "height": 1080},
-            user_agent=random.choice(self.user_agents),
-        )
-        page = await context.new_page()
-        
-        try:
-            await page.goto(url, wait_until='domcontentloaded', timeout=60000)
-            await asyncio.sleep(3)
-            
-            content = await page.content()
-            if 'captcha' in content.lower():
-                if self.debug_mode:
-                    await self._save_debug(page, idx, "amazon_captcha")
-                return "CAPTCHA", "CAPTCHA"
-            
-            data = await page.evaluate('''() => {
-                let sellingPrice = '';
-                let mrp = '';
-                
-                const sellingEl = document.querySelector('.a-price:not([data-a-strike="true"]) .a-offscreen');
-                if (sellingEl) sellingPrice = sellingEl.textContent.trim();
-                
-                const mrpEl = document.querySelector('.a-text-price .a-offscreen');
-                if (mrpEl) mrp = mrpEl.textContent.trim();
-                
-                if (!mrp && sellingPrice) mrp = sellingPrice;
-                
-                return { mrp, sellingPrice };
-            }''')
-            
-            return data.get('mrp') or "N/A", data.get('sellingPrice') or "N/A"
-            
-        except Exception as e:
-            print(f"  ✗ Direct Amazon error: {e}")
-            return "Error", "Error"
-        finally:
-            await context.close()
-
     async def _scrape_ebazaar(self, url: str, idx: int) -> tuple:
-        """Scrape eBazaar using Playwright"""
+        """Scrape eBazaar using Playwright (FREE - no API calls)"""
         context = await self.browser.new_context(
             viewport={"width": 1920, "height": 1080},
             user_agent=random.choice(self.user_agents),
@@ -281,14 +301,6 @@ class UnifiedScraper:
         finally:
             await context.close()
 
-    async def _save_debug(self, page, idx: int, source: str):
-        try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            await page.screenshot(path=f"{self.debug_dir}/{source}_{idx}_{timestamp}.png", full_page=True)
-            print(f"  📸 Debug saved: {source}_{idx}_{timestamp}.png")
-        except Exception as e:
-            print(f"  Failed to save debug: {e}")
-
 
 def main():
     print("=" * 60)
@@ -305,7 +317,7 @@ def main():
         print("\n" + "=" * 60)
         print(f"✓ Saved {len(df_output)} products to price/data.csv")
         
-        amazon_ok = len(df_output[~df_output['amazon_selling_price'].isin(['N/A', 'Error', 'CAPTCHA', 'Blocked', ''])])
+        amazon_ok = len(df_output[~df_output['amazon_selling_price'].isin(['N/A', 'Error', 'CAPTCHA', 'Blocked', '', 'No API Key'])])
         ebazaar_ok = len(df_output[~df_output['ebazaar_selling_price'].isin(['N/A', 'Error', ''])])
         
         print(f"  Amazon success:  {amazon_ok}/{len(df_output)}")
