@@ -2,8 +2,8 @@ name: Price Scraper
 
 on:
   schedule:
-    - cron: '30 3 * * *'  # Runs daily at 6 AM UTC
-  workflow_dispatch:  # Manual trigger
+    - cron: '0 6 * * *'
+  workflow_dispatch:
 
 jobs:
   scrape:
@@ -33,7 +33,7 @@ jobs:
             libgbm1 \
             libpango-1.0-0 \
             libcairo2 \
-            libasound2 \
+            libasound2t64 \
             libatspi2.0-0
 
       - name: Install Python dependencies
