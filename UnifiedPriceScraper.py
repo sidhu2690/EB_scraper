@@ -22,19 +22,19 @@ class ProductComparison:
 
 
 class UnifiedScraper:
-    def __init__(self, debug_mode: bool = False):
+    def __init__(self, debug_mode: bool = False, country: str = "us"):
         self.browser = None
         self.debug_mode = debug_mode
         self.debug_dir = "debug_screenshots"
+        self.country = country  # 👈 Configurable country
         
         # Load all API keys from environment
         self.api_keys = []
-        for i in range(1, 8):  # SCRAPER_API_KEY_1 to SCRAPER_API_KEY_10
+        for i in range(1, 11):
             key = os.environ.get(f'SCRAPER_API_KEY_{i}', '')
             if key:
                 self.api_keys.append(key)
         
-        # Track current key index and failed keys
         self.current_key_index = 0
         self.failed_keys = set()
         
@@ -51,23 +51,18 @@ class UnifiedScraper:
         if not self.api_keys:
             return None
         
-        # Try to find a working key
         attempts = 0
         while attempts < len(self.api_keys):
             key = self.api_keys[self.current_key_index]
             key_id = self.current_key_index + 1
-            
-            # Move to next key for next call
             self.current_key_index = (self.current_key_index + 1) % len(self.api_keys)
             
-            # Skip if this key has failed
             if key_id in self.failed_keys:
                 attempts += 1
                 continue
             
             return key, key_id
         
-        # All keys failed, reset and try again
         print("  ⚠ All API keys exhausted, resetting...")
         self.failed_keys.clear()
         key = self.api_keys[0]
@@ -75,7 +70,7 @@ class UnifiedScraper:
         return key, 1
 
     def _mark_key_failed(self, key_id: int):
-        """Mark an API key as failed (quota exceeded)"""
+        """Mark an API key as failed"""
         self.failed_keys.add(key_id)
         print(f"  ⚠ API Key #{key_id} marked as exhausted")
 
@@ -84,9 +79,10 @@ class UnifiedScraper:
         products = []
         
         print(f"\n🔑 Loaded {len(self.api_keys)} API keys")
+        print(f"🌍 Region: {self.country.upper()}")
         
         if not self.api_keys:
-            print("⚠️ No API keys found! Add SCRAPER_API_KEY_1, SCRAPER_API_KEY_2, etc.")
+            print("⚠️ No API keys found!")
         
         async with async_playwright() as p:
             await self._setup_browser(p)
@@ -101,7 +97,6 @@ class UnifiedScraper:
                     ebazaar_link=row.get('ebazaar_link', '')
                 )
                 
-                # Scrape Amazon using ScraperAPI
                 if pd.notna(row.get('amazon_link')) and str(row['amazon_link']).strip():
                     mrp, selling = await self._scrape_amazon(row['amazon_link'], idx)
                     product.amazon_mrp = mrp
@@ -109,7 +104,6 @@ class UnifiedScraper:
                 
                 await asyncio.sleep(random.uniform(1, 2))
                 
-                # Scrape eBazaar using Playwright (FREE)
                 if pd.notna(row.get('ebazaar_link')) and str(row['ebazaar_link']).strip():
                     mrp, selling = await self._scrape_ebazaar(row['ebazaar_link'], idx)
                     product.ebazaar_mrp = mrp
@@ -137,13 +131,12 @@ class UnifiedScraper:
         )
 
     async def _scrape_amazon(self, url: str, idx: int) -> tuple:
-        """Scrape Amazon using ScraperAPI with multiple keys"""
+        """Scrape Amazon using ScraperAPI with CONSISTENT GEOLOCATION"""
         
         if not self.api_keys:
             print("  ⚠ No API keys available")
             return "No API Key", "No API Key"
         
-        # Try up to 3 different keys
         max_retries = min(3, len(self.api_keys))
         
         for attempt in range(max_retries):
@@ -154,14 +147,22 @@ class UnifiedScraper:
             api_key, key_id = result
             
             try:
-                api_url = f"http://api.scraperapi.com?api_key={api_key}&url={url}&render=true"
+                # ✅ FIXED: Force consistent US geolocation
+                api_url = (
+                    f"http://api.scraperapi.com"
+                    f"?api_key={api_key}"
+                    f"&url={url}"
+                    f"&render=true"
+                    f"&country_code={self.country}"  # 👈 CONSISTENT REGION
+                    f"&device_type=desktop"          # 👈 Consistent device
+                    f"&keep_headers=true"            # 👈 Preserve headers
+                )
                 
-                print(f"  → Using API Key #{key_id}...")
+                print(f"  → Using API Key #{key_id} ({self.country.upper()} region)...")
                 
                 async with httpx.AsyncClient(timeout=90) as client:
                     response = await client.get(api_url)
                     
-                    # Check for quota exceeded (403 or 429)
                     if response.status_code in [403, 429]:
                         print(f"  ⚠ API Key #{key_id} quota exceeded")
                         self._mark_key_failed(key_id)
@@ -173,17 +174,28 @@ class UnifiedScraper:
                     
                     html = response.text
                     
-                    # Check for CAPTCHA
-                    if 'captcha' in html.lower():
-                        print("  ⚠ CAPTCHA detected")
-                        return "CAPTCHA", "CAPTCHA"
+                    # Debug: Save HTML for troubleshooting
+                    if self.debug_mode:
+                        with open(f"{self.debug_dir}/amazon_{idx}.html", "w", encoding="utf-8") as f:
+                            f.write(html)
                     
-                    # Parse prices from HTML
+                    if 'captcha' in html.lower() or 'robot' in html.lower():
+                        print("  ⚠ CAPTCHA/Bot detection")
+                        continue  # Try next key instead of failing
+                    
                     mrp, selling = self._parse_amazon_prices(html)
+                    
+                    # Validate we got real prices
+                    if selling == "N/A" and attempt < max_retries - 1:
+                        print("  ⚠ No price found, trying another key...")
+                        continue
                     
                     print(f"  Amazon: MRP={mrp}, Selling={selling}")
                     return mrp, selling
                     
+            except httpx.TimeoutException:
+                print(f"  ⚠ Timeout on attempt {attempt + 1}")
+                continue
             except Exception as e:
                 print(f"  ⚠ Attempt {attempt + 1} failed: {str(e)[:50]}")
                 continue
@@ -199,50 +211,57 @@ class UnifiedScraper:
         selling_price = "N/A"
         mrp = "N/A"
         
-        # Selling price selectors
+        # Selling price selectors (prioritized)
         selling_selectors = [
-            '.a-price:not([data-a-strike="true"]) .a-offscreen',
             '.priceToPay .a-offscreen',
+            '#corePrice_feature_div .a-offscreen',
+            '.a-price:not([data-a-strike="true"]) .a-offscreen',
             '#priceblock_ourprice',
             '#priceblock_dealprice',
+            '#priceblock_saleprice',
             '.a-price .a-offscreen',
+            'span[data-a-color="price"] .a-offscreen',
         ]
         
         for selector in selling_selectors:
             el = soup.select_one(selector)
             if el:
                 text = el.get_text(strip=True)
-                if text and ('$' in text or '₹' in text):
+                if text and '$' in text:
+                    # Verify it's not a strikethrough price
                     parent = el.find_parent(attrs={'data-a-strike': 'true'})
                     if not parent:
                         parent = el.find_parent(class_='a-text-price')
-                        if not parent:
+                        if not parent or 'data-a-strike' not in str(parent):
                             selling_price = text
                             break
         
         # MRP selectors
         mrp_selectors = [
-            '.a-text-price .a-offscreen',
             '.basisPrice .a-offscreen',
+            '.a-text-price[data-a-strike="true"] .a-offscreen',
+            '.a-text-price .a-offscreen',
             '[data-a-strike="true"] .a-offscreen',
             '#priceblock_listprice',
+            '#listPrice',
         ]
         
         for selector in mrp_selectors:
             el = soup.select_one(selector)
             if el:
                 text = el.get_text(strip=True)
-                if text and ('$' in text or '₹' in text):
+                if text and '$' in text:
                     mrp = text
                     break
         
+        # Fallback: if no MRP found, use selling price
         if mrp == "N/A" and selling_price != "N/A":
             mrp = selling_price
         
         return mrp, selling_price
 
     async def _scrape_ebazaar(self, url: str, idx: int) -> tuple:
-        """Scrape eBazaar using Playwright (FREE - no API calls)"""
+        """Scrape eBazaar using Playwright (FREE)"""
         context = await self.browser.new_context(
             viewport={"width": 1920, "height": 1080},
             user_agent=random.choice(self.user_agents),
@@ -308,7 +327,8 @@ def main():
     print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
     
-    scraper = UnifiedScraper(debug_mode=True)
+    # ✅ Set country to "us" for consistent US pricing
+    scraper = UnifiedScraper(debug_mode=True, country="us")
     
     try:
         df_output = asyncio.run(scraper.run('price/input_links.csv'))
