@@ -2,7 +2,7 @@ name: Amazon Laptop Scraper
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '30 3 * * *'
   workflow_dispatch:
   push:
     branches: [main]
