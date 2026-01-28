@@ -29,12 +29,11 @@ class UnifiedScraper:
         
         # Load all API keys from environment
         self.api_keys = []
-        for i in range(1, 8):  # SCRAPER_API_KEY_1 to SCRAPER_API_KEY_10
+        for i in range(1, 8):
             key = os.environ.get(f'SCRAPER_API_KEY_{i}', '')
             if key:
                 self.api_keys.append(key)
         
-        # Track current key index and failed keys
         self.current_key_index = 0
         self.failed_keys = set()
         
@@ -51,23 +50,18 @@ class UnifiedScraper:
         if not self.api_keys:
             return None
         
-        # Try to find a working key
         attempts = 0
         while attempts < len(self.api_keys):
             key = self.api_keys[self.current_key_index]
             key_id = self.current_key_index + 1
-            
-            # Move to next key for next call
             self.current_key_index = (self.current_key_index + 1) % len(self.api_keys)
             
-            # Skip if this key has failed
             if key_id in self.failed_keys:
                 attempts += 1
                 continue
             
             return key, key_id
         
-        # All keys failed, reset and try again
         print("  ⚠ All API keys exhausted, resetting...")
         self.failed_keys.clear()
         key = self.api_keys[0]
@@ -75,18 +69,19 @@ class UnifiedScraper:
         return key, 1
 
     def _mark_key_failed(self, key_id: int):
-        """Mark an API key as failed (quota exceeded)"""
         self.failed_keys.add(key_id)
         print(f"  ⚠ API Key #{key_id} marked as exhausted")
+
+    def _is_valid_price(self, mrp: str, selling: str) -> bool:
+        """Check if we got valid prices"""
+        invalid = ['N/A', 'Error', 'CAPTCHA', 'Blocked', '', 'No API Key', None]
+        return selling not in invalid and mrp not in invalid
 
     async def run(self, input_csv: str) -> pd.DataFrame:
         df_input = pd.read_csv(input_csv)
         products = []
         
-        print(f"\n🔑 Loaded {len(self.api_keys)} API keys")
-        
-        if not self.api_keys:
-            print("⚠️ No API keys found! Add SCRAPER_API_KEY_1, SCRAPER_API_KEY_2, etc.")
+        print(f"\n🔑 Loaded {len(self.api_keys)} API keys (used as fallback)")
         
         async with async_playwright() as p:
             await self._setup_browser(p)
@@ -101,7 +96,6 @@ class UnifiedScraper:
                     ebazaar_link=row.get('ebazaar_link', '')
                 )
                 
-                # Scrape Amazon using ScraperAPI
                 if pd.notna(row.get('amazon_link')) and str(row['amazon_link']).strip():
                     mrp, selling = await self._scrape_amazon(row['amazon_link'], idx)
                     product.amazon_mrp = mrp
@@ -109,7 +103,6 @@ class UnifiedScraper:
                 
                 await asyncio.sleep(random.uniform(1, 2))
                 
-                # Scrape eBazaar using Playwright (FREE)
                 if pd.notna(row.get('ebazaar_link')) and str(row['ebazaar_link']).strip():
                     mrp, selling = await self._scrape_ebazaar(row['ebazaar_link'], idx)
                     product.ebazaar_mrp = mrp
@@ -137,13 +130,83 @@ class UnifiedScraper:
         )
 
     async def _scrape_amazon(self, url: str, idx: int) -> tuple:
-        """Scrape Amazon using ScraperAPI with multiple keys"""
+        """Scrape Amazon - tries: 1) Direct request, 2) Playwright, 3) ScraperAPI"""
+        
+        # Method 1: Direct request with httpx + BeautifulSoup (FREE)
+        print("  → Method 1: Direct request...")
+        mrp, selling = await self._scrape_amazon_direct(url)
+        if self._is_valid_price(mrp, selling):
+            print(f"  ✓ Direct request success!")
+            return mrp, selling
+        
+        # Method 2: Playwright (FREE)
+        print("  → Method 2: Playwright...")
+        mrp, selling = await self._scrape_amazon_playwright(url, idx)
+        if self._is_valid_price(mrp, selling):
+            print(f"  ✓ Playwright success!")
+            return mrp, selling
+        
+        # Method 3: ScraperAPI (PAID - last resort)
+        print("  → Method 3: ScraperAPI (fallback)...")
+        return await self._scrape_amazon_api(url, idx)
+
+    async def _scrape_amazon_direct(self, url: str) -> tuple:
+        """Try direct HTTP request with BeautifulSoup"""
+        try:
+            headers = {
+                'User-Agent': random.choice(self.user_agents),
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+            }
+            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+                response = await client.get(url, headers=headers)
+                if response.status_code == 200:
+                    html = response.text
+                    if 'captcha' in html.lower() or 'robot' in html.lower():
+                        print("  ⚠ Direct: CAPTCHA/Bot detected")
+                        return "CAPTCHA", "CAPTCHA"
+                    return self._parse_amazon_prices(html)
+                else:
+                    print(f"  ⚠ Direct: Status {response.status_code}")
+        except Exception as e:
+            print(f"  ⚠ Direct request failed: {str(e)[:50]}")
+        return "N/A", "N/A"
+
+    async def _scrape_amazon_playwright(self, url: str, idx: int) -> tuple:
+        """Try Playwright browser"""
+        context = None
+        try:
+            context = await self.browser.new_context(
+                viewport={"width": 1920, "height": 1080},
+                user_agent=random.choice(self.user_agents),
+            )
+            page = await context.new_page()
+            await page.goto(url, wait_until='domcontentloaded', timeout=60000)
+            await asyncio.sleep(random.uniform(2, 4))
+            
+            html = await page.content()
+            if 'captcha' in html.lower() or 'robot' in html.lower():
+                print("  ⚠ Playwright: CAPTCHA/Bot detected")
+                return "CAPTCHA", "CAPTCHA"
+            
+            return self._parse_amazon_prices(html)
+        except Exception as e:
+            print(f"  ⚠ Playwright failed: {str(e)[:50]}")
+            return "N/A", "N/A"
+        finally:
+            if context:
+                await context.close()
+
+    async def _scrape_amazon_api(self, url: str, idx: int) -> tuple:
+        """Scrape Amazon using ScraperAPI (PAID - last resort)"""
         
         if not self.api_keys:
             print("  ⚠ No API keys available")
             return "No API Key", "No API Key"
         
-        # Try up to 3 different keys
         max_retries = min(3, len(self.api_keys))
         
         for attempt in range(max_retries):
@@ -155,13 +218,11 @@ class UnifiedScraper:
             
             try:
                 api_url = f"http://api.scraperapi.com?api_key={api_key}&url={url}&render=true"
-                
                 print(f"  → Using API Key #{key_id}...")
                 
                 async with httpx.AsyncClient(timeout=90) as client:
                     response = await client.get(api_url)
                     
-                    # Check for quota exceeded (403 or 429)
                     if response.status_code in [403, 429]:
                         print(f"  ⚠ API Key #{key_id} quota exceeded")
                         self._mark_key_failed(key_id)
@@ -173,14 +234,11 @@ class UnifiedScraper:
                     
                     html = response.text
                     
-                    # Check for CAPTCHA
                     if 'captcha' in html.lower():
                         print("  ⚠ CAPTCHA detected")
                         return "CAPTCHA", "CAPTCHA"
                     
-                    # Parse prices from HTML
                     mrp, selling = self._parse_amazon_prices(html)
-                    
                     print(f"  Amazon: MRP={mrp}, Selling={selling}")
                     return mrp, selling
                     
@@ -199,7 +257,6 @@ class UnifiedScraper:
         selling_price = "N/A"
         mrp = "N/A"
         
-        # Selling price selectors
         selling_selectors = [
             '.a-price:not([data-a-strike="true"]) .a-offscreen',
             '.priceToPay .a-offscreen',
@@ -220,7 +277,6 @@ class UnifiedScraper:
                             selling_price = text
                             break
         
-        # MRP selectors
         mrp_selectors = [
             '.a-text-price .a-offscreen',
             '.basisPrice .a-offscreen',
@@ -242,7 +298,7 @@ class UnifiedScraper:
         return mrp, selling_price
 
     async def _scrape_ebazaar(self, url: str, idx: int) -> tuple:
-        """Scrape eBazaar using Playwright (FREE - no API calls)"""
+        """Scrape eBazaar using Playwright (FREE)"""
         context = await self.browser.new_context(
             viewport={"width": 1920, "height": 1080},
             user_agent=random.choice(self.user_agents),
