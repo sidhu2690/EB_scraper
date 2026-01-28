@@ -13,6 +13,7 @@ nest_asyncio.apply()
 @dataclass
 class ProductComparison:
     model_name: str = ""
+    amazon_method: str = ""  # A=Request, B=Playwright, C=API
     amazon_mrp: str = ""
     amazon_selling_price: str = ""
     ebazaar_mrp: str = ""
@@ -97,9 +98,10 @@ class UnifiedScraper:
                 )
                 
                 if pd.notna(row.get('amazon_link')) and str(row['amazon_link']).strip():
-                    mrp, selling = await self._scrape_amazon(row['amazon_link'], idx)
+                    mrp, selling, method = await self._scrape_amazon(row['amazon_link'], idx)
                     product.amazon_mrp = mrp
                     product.amazon_selling_price = selling
+                    product.amazon_method = method
                 
                 await asyncio.sleep(random.uniform(1, 2))
                 
@@ -109,7 +111,7 @@ class UnifiedScraper:
                     product.ebazaar_selling_price = selling
                 
                 products.append(product)
-                print(f"  ✓ Done: MRP(A)={product.amazon_mrp}, SP(A)={product.amazon_selling_price}, "
+                print(f"  ✓ Done: Method={product.amazon_method}, MRP(A)={product.amazon_mrp}, SP(A)={product.amazon_selling_price}, "
                       f"MRP(E)={product.ebazaar_mrp}, SP(E)={product.ebazaar_selling_price}")
                 
                 if idx < total - 1:
@@ -130,25 +132,33 @@ class UnifiedScraper:
         )
 
     async def _scrape_amazon(self, url: str, idx: int) -> tuple:
-        """Scrape Amazon - tries: 1) Direct request, 2) Playwright, 3) ScraperAPI"""
+        """Scrape Amazon - tries: 1) Direct request, 2) Playwright, 3) ScraperAPI
+        Returns: (mrp, selling_price, method)
+        Method: A=Request, B=Playwright, C=API, X=Failed
+        """
         
-        # Method 1: Direct request with httpx + BeautifulSoup (FREE)
-        print("  → Method 1: Direct request...")
+        # Method A: Direct request with httpx + BeautifulSoup (FREE)
+        print("  → Method A: Direct request...")
         mrp, selling = await self._scrape_amazon_direct(url)
         if self._is_valid_price(mrp, selling):
             print(f"  ✓ Direct request success!")
-            return mrp, selling
+            return mrp, selling, "A"
         
-        # Method 2: Playwright (FREE)
-        print("  → Method 2: Playwright...")
+        # Method B: Playwright (FREE)
+        print("  → Method B: Playwright...")
         mrp, selling = await self._scrape_amazon_playwright(url, idx)
         if self._is_valid_price(mrp, selling):
             print(f"  ✓ Playwright success!")
-            return mrp, selling
+            return mrp, selling, "B"
         
-        # Method 3: ScraperAPI (PAID - last resort)
-        print("  → Method 3: ScraperAPI (fallback)...")
-        return await self._scrape_amazon_api(url, idx)
+        # Method C: ScraperAPI (PAID - last resort)
+        print("  → Method C: ScraperAPI (fallback)...")
+        mrp, selling = await self._scrape_amazon_api(url, idx)
+        if self._is_valid_price(mrp, selling):
+            return mrp, selling, "C"
+        
+        # All methods failed
+        return mrp, selling, "X"
 
     async def _scrape_amazon_direct(self, url: str) -> tuple:
         """Try direct HTTP request with BeautifulSoup"""
@@ -363,6 +373,8 @@ def main():
     print("Price Scraper Started")
     print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
+    print("Method Legend: A=Request, B=Playwright, C=API, X=Failed")
+    print("=" * 60)
     
     scraper = UnifiedScraper(debug_mode=True)
     
@@ -376,7 +388,15 @@ def main():
         amazon_ok = len(df_output[~df_output['amazon_selling_price'].isin(['N/A', 'Error', 'CAPTCHA', 'Blocked', '', 'No API Key'])])
         ebazaar_ok = len(df_output[~df_output['ebazaar_selling_price'].isin(['N/A', 'Error', ''])])
         
-        print(f"  Amazon success:  {amazon_ok}/{len(df_output)}")
+        # Method breakdown
+        method_counts = df_output['amazon_method'].value_counts()
+        print(f"\n  Method breakdown:")
+        print(f"    A (Request):    {method_counts.get('A', 0)}")
+        print(f"    B (Playwright): {method_counts.get('B', 0)}")
+        print(f"    C (API):        {method_counts.get('C', 0)}")
+        print(f"    X (Failed):     {method_counts.get('X', 0)}")
+        
+        print(f"\n  Amazon success:  {amazon_ok}/{len(df_output)}")
         print(f"  eBazaar success: {ebazaar_ok}/{len(df_output)}")
         print("=" * 60)
         
