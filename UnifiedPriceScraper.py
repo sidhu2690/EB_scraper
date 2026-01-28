@@ -13,8 +13,8 @@ nest_asyncio.apply()
 @dataclass
 class ProductComparison:
     model_name: str = ""
-    amazon_method: str = ""  # A=Request, B=Playwright, C=API
-    amazon_ip_location: str = ""  # IP and location used
+    amazon_method: str = ""
+    amazon_ip_location: str = ""
     amazon_mrp: str = ""
     amazon_selling_price: str = ""
     ebazaar_mrp: str = ""
@@ -24,12 +24,13 @@ class ProductComparison:
 
 
 class UnifiedScraper:
-    def __init__(self, debug_mode: bool = False):
+    def __init__(self, debug_mode: bool = False, us_only: bool = True):
         self.browser = None
         self.debug_mode = debug_mode
+        self.us_only = us_only  # NEW: Force US IPs only
         self.debug_dir = "debug_screenshots"
-        self.local_ip_info = None  # Cache local IP info
-        self.scraperapi_ip_cache = {}  # Cache ScraperAPI IP per key
+        self.local_ip_info = None
+        self.scraperapi_ip_cache = {}
         
         # Load all API keys from environment
         self.api_keys = []
@@ -52,7 +53,6 @@ class UnifiedScraper:
     async def _get_ip_location(self) -> str:
         """Get local IP and location info"""
         try:
-            # Cache the result
             if self.local_ip_info:
                 return self.local_ip_info
             
@@ -62,49 +62,53 @@ class UnifiedScraper:
                     data = response.json()
                     ip = data.get('query', 'Unknown')
                     city = data.get('city', '')
+                    region = data.get('regionName', '')
                     country = data.get('country', '')
-                    self.local_ip_info = f"{ip} ({city}, {country})"
+                    country_code = data.get('countryCode', '')
+                    
+                    location = f"{city}, {region}, {country}" if region else f"{city}, {country}"
+                    self.local_ip_info = f"{ip} ({location})"
+                    self.local_country_code = country_code
                     return self.local_ip_info
         except Exception as e:
             print(f"  ⚠ IP lookup failed: {str(e)[:30]}")
         return "Unknown"
 
+    async def _is_local_ip_us(self) -> bool:
+        """Check if local IP is in the US"""
+        await self._get_ip_location()
+        return getattr(self, 'local_country_code', '') == 'US'
+
     async def _get_scraperapi_ip(self, api_key: str, key_id: int) -> str:
         """Get the actual IP/location that ScraperAPI proxy is using"""
         try:
-            # Check cache first (each API call might use different proxy, but cache to save credits)
             if key_id in self.scraperapi_ip_cache:
                 return self.scraperapi_ip_cache[key_id]
             
             print(f"  → Fetching ScraperAPI proxy location...")
-            api_url = f"http://api.scraperapi.com?api_key={api_key}&url=http://ip-api.com/json/"
+            # Add country_code=us to ensure US IP
+            api_url = f"http://api.scraperapi.com?api_key={api_key}&country_code=us&url=http://ip-api.com/json/"
             
             async with httpx.AsyncClient(timeout=30) as client:
                 response = await client.get(api_url)
                 if response.status_code == 200:
-                    # The response is the ip-api.com JSON
                     data = response.json()
                     ip = data.get('query', 'Unknown')
                     city = data.get('city', 'Unknown')
                     region = data.get('regionName', '')
                     country = data.get('country', 'Unknown')
-                    isp = data.get('isp', '')
                     
-                    # Format: "IP (City, Region, Country)"
-                    location = f"{city}, {country}"
-                    if region and region != city:
-                        location = f"{city}, {region}, {country}"
-                    
+                    location = f"{city}, {region}, {country}" if region else f"{city}, {country}"
                     result = f"{ip} ({location})"
                     self.scraperapi_ip_cache[key_id] = result
-                    print(f"  ✓ Proxy location: {result}")
+                    print(f"  ✓ US Proxy location: {result}")
                     return result
                 else:
                     print(f"  ⚠ Proxy IP lookup returned {response.status_code}")
         except Exception as e:
             print(f"  ⚠ Proxy IP lookup failed: {str(e)[:40]}")
         
-        return "Proxy (Unknown Location)"
+        return "US Proxy (Unknown City)"
 
     def _get_next_api_key(self):
         """Round-robin through available API keys"""
@@ -142,11 +146,17 @@ class UnifiedScraper:
         df_input = pd.read_csv(input_csv)
         products = []
         
-        print(f"\n🔑 Loaded {len(self.api_keys)} API keys (used as fallback)")
+        print(f"\n🔑 Loaded {len(self.api_keys)} API keys")
+        print(f"🇺🇸 US-Only Mode: {'ENABLED' if self.us_only else 'DISABLED'}")
         
         # Get local IP at startup
         local_ip = await self._get_ip_location()
+        is_us = await self._is_local_ip_us()
         print(f"🌐 Local IP: {local_ip}")
+        print(f"   Local IP is US: {'Yes ✓' if is_us else 'No ✗'}")
+        
+        if self.us_only and not is_us:
+            print(f"⚠ Local IP not in US - will use ScraperAPI for all Amazon requests")
         
         async with async_playwright() as p:
             await self._setup_browser(p)
@@ -198,12 +208,24 @@ class UnifiedScraper:
         )
 
     async def _scrape_amazon(self, url: str, idx: int) -> tuple:
-        """Scrape Amazon - tries: 1) Direct request, 2) Playwright, 3) ScraperAPI
+        """Scrape Amazon with US IP enforcement
         Returns: (mrp, selling_price, method, ip_location)
-        Method: A=Request, B=Playwright, C=API, X=Failed
         """
         
-        # Method A: Direct request with httpx + BeautifulSoup (FREE)
+        is_local_us = await self._is_local_ip_us()
+        
+        # If US-only mode AND local IP is not US, skip free methods
+        if self.us_only and not is_local_us:
+            print("  → Skipping local methods (non-US IP)")
+            print("  → Method C: ScraperAPI (US proxy)...")
+            mrp, selling, ip_loc = await self._scrape_amazon_api(url, idx)
+            if self._is_valid_price(mrp, selling):
+                return mrp, selling, "C", ip_loc
+            return mrp, selling, "X", "N/A"
+        
+        # If local IP is US OR us_only is disabled, try free methods first
+        
+        # Method A: Direct request (FREE)
         print("  → Method A: Direct request...")
         mrp, selling = await self._scrape_amazon_direct(url)
         if self._is_valid_price(mrp, selling):
@@ -219,13 +241,12 @@ class UnifiedScraper:
             print(f"  ✓ Playwright success!")
             return mrp, selling, "B", ip_loc
         
-        # Method C: ScraperAPI (PAID - last resort)
-        print("  → Method C: ScraperAPI (fallback)...")
+        # Method C: ScraperAPI with US IP (PAID - last resort)
+        print("  → Method C: ScraperAPI (US fallback)...")
         mrp, selling, ip_loc = await self._scrape_amazon_api(url, idx)
         if self._is_valid_price(mrp, selling):
             return mrp, selling, "C", ip_loc
         
-        # All methods failed
         return mrp, selling, "X", "N/A"
 
     async def _scrape_amazon_direct(self, url: str) -> tuple:
@@ -279,7 +300,7 @@ class UnifiedScraper:
                 await context.close()
 
     async def _scrape_amazon_api(self, url: str, idx: int) -> tuple:
-        """Scrape Amazon using ScraperAPI (PAID - last resort)
+        """Scrape Amazon using ScraperAPI with US IP
         Returns: (mrp, selling_price, ip_location)
         """
         
@@ -297,8 +318,15 @@ class UnifiedScraper:
             api_key, key_id = result
             
             try:
-                api_url = f"http://api.scraperapi.com?api_key={api_key}&url={url}&render=true"
-                print(f"  → Using API Key #{key_id}...")
+                # KEY CHANGE: Added country_code=us for US IP
+                api_url = (
+                    f"http://api.scraperapi.com?"
+                    f"api_key={api_key}"
+                    f"&country_code=us"  # ← FORCE US IP
+                    f"&url={url}"
+                    f"&render=true"
+                )
+                print(f"  → Using API Key #{key_id} (US proxy)...")
                 
                 async with httpx.AsyncClient(timeout=90) as client:
                     response = await client.get(api_url)
@@ -316,11 +344,11 @@ class UnifiedScraper:
                     
                     if 'captcha' in html.lower():
                         print("  ⚠ CAPTCHA detected")
-                        return "CAPTCHA", "CAPTCHA", "Proxy (CAPTCHA)"
+                        return "CAPTCHA", "CAPTCHA", "US Proxy (CAPTCHA)"
                     
                     mrp, selling = self._parse_amazon_prices(html)
                     
-                    # Get actual ScraperAPI proxy location (uses 1 extra API credit, cached per key)
+                    # Get actual ScraperAPI US proxy location
                     ip_loc = await self._get_scraperapi_ip(api_key, key_id)
                     
                     print(f"  Amazon: MRP={mrp}, Selling={selling}")
@@ -382,7 +410,7 @@ class UnifiedScraper:
         return mrp, selling_price
 
     async def _scrape_ebazaar(self, url: str, idx: int) -> tuple:
-        """Scrape eBazaar using Playwright (FREE)"""
+        """Scrape eBazaar using Playwright"""
         context = await self.browser.new_context(
             viewport={"width": 1920, "height": 1080},
             user_agent=random.choice(self.user_agents),
@@ -450,7 +478,8 @@ def main():
     print("Method Legend: A=Request, B=Playwright, C=API, X=Failed")
     print("=" * 60)
     
-    scraper = UnifiedScraper(debug_mode=True)
+    # Set us_only=True to force US IPs for Amazon
+    scraper = UnifiedScraper(debug_mode=True, us_only=True)
     
     try:
         df_output = asyncio.run(scraper.run('price/input_links.csv'))
@@ -462,17 +491,15 @@ def main():
         amazon_ok = len(df_output[~df_output['amazon_selling_price'].isin(['N/A', 'Error', 'CAPTCHA', 'Blocked', '', 'No API Key'])])
         ebazaar_ok = len(df_output[~df_output['ebazaar_selling_price'].isin(['N/A', 'Error', ''])])
         
-        # Method breakdown
         method_counts = df_output['amazon_method'].value_counts()
         print(f"\n  Method breakdown:")
         print(f"    A (Request):    {method_counts.get('A', 0)}")
         print(f"    B (Playwright): {method_counts.get('B', 0)}")
-        print(f"    C (API):        {method_counts.get('C', 0)}")
+        print(f"    C (API/US):     {method_counts.get('C', 0)}")
         print(f"    X (Failed):     {method_counts.get('X', 0)}")
         
-        # IP locations used
         ip_counts = df_output['amazon_ip_location'].value_counts()
-        print(f"\n  IP Locations:")
+        print(f"\n  IP Locations (should all be US):")
         for ip, count in ip_counts.items():
             print(f"    {ip}: {count}")
         
