@@ -29,6 +29,7 @@ class UnifiedScraper:
         self.debug_mode = debug_mode
         self.debug_dir = "debug_screenshots"
         self.local_ip_info = None  # Cache local IP info
+        self.scraperapi_ip_cache = {}  # Cache ScraperAPI IP per key
         
         # Load all API keys from environment
         self.api_keys = []
@@ -48,45 +49,62 @@ class UnifiedScraper:
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         ]
 
-    async def _get_ip_location(self, use_proxy: bool = False, proxy_html: str = None) -> str:
-        """Get IP and location info"""
+    async def _get_ip_location(self) -> str:
+        """Get local IP and location info"""
         try:
-            if not use_proxy:
-                # For local requests, cache the result
-                if self.local_ip_info:
-                    return self.local_ip_info
-                
-                async with httpx.AsyncClient(timeout=10) as client:
-                    response = await client.get("http://ip-api.com/json/")
-                    if response.status_code == 200:
-                        data = response.json()
-                        ip = data.get('query', 'Unknown')
-                        city = data.get('city', '')
-                        country = data.get('country', '')
-                        self.local_ip_info = f"{ip} ({city}, {country})"
-                        return self.local_ip_info
-            else:
-                # For ScraperAPI, try to extract from response or return proxy indicator
-                return "ScraperAPI Proxy"
-        except Exception as e:
-            print(f"  ⚠ IP lookup failed: {str(e)[:30]}")
-        return "Unknown"
-
-    async def _get_scraperapi_ip(self, api_key: str) -> str:
-        """Get the IP that ScraperAPI is using"""
-        try:
-            api_url = f"http://api.scraperapi.com?api_key={api_key}&url=http://ip-api.com/json/"
-            async with httpx.AsyncClient(timeout=30) as client:
-                response = await client.get(api_url)
+            # Cache the result
+            if self.local_ip_info:
+                return self.local_ip_info
+            
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.get("http://ip-api.com/json/")
                 if response.status_code == 200:
                     data = response.json()
                     ip = data.get('query', 'Unknown')
                     city = data.get('city', '')
                     country = data.get('country', '')
-                    return f"{ip} ({city}, {country}) [Proxy]"
-        except:
-            pass
-        return "ScraperAPI Proxy"
+                    self.local_ip_info = f"{ip} ({city}, {country})"
+                    return self.local_ip_info
+        except Exception as e:
+            print(f"  ⚠ IP lookup failed: {str(e)[:30]}")
+        return "Unknown"
+
+    async def _get_scraperapi_ip(self, api_key: str, key_id: int) -> str:
+        """Get the actual IP/location that ScraperAPI proxy is using"""
+        try:
+            # Check cache first (each API call might use different proxy, but cache to save credits)
+            if key_id in self.scraperapi_ip_cache:
+                return self.scraperapi_ip_cache[key_id]
+            
+            print(f"  → Fetching ScraperAPI proxy location...")
+            api_url = f"http://api.scraperapi.com?api_key={api_key}&url=http://ip-api.com/json/"
+            
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.get(api_url)
+                if response.status_code == 200:
+                    # The response is the ip-api.com JSON
+                    data = response.json()
+                    ip = data.get('query', 'Unknown')
+                    city = data.get('city', 'Unknown')
+                    region = data.get('regionName', '')
+                    country = data.get('country', 'Unknown')
+                    isp = data.get('isp', '')
+                    
+                    # Format: "IP (City, Region, Country)"
+                    location = f"{city}, {country}"
+                    if region and region != city:
+                        location = f"{city}, {region}, {country}"
+                    
+                    result = f"{ip} ({location})"
+                    self.scraperapi_ip_cache[key_id] = result
+                    print(f"  ✓ Proxy location: {result}")
+                    return result
+                else:
+                    print(f"  ⚠ Proxy IP lookup returned {response.status_code}")
+        except Exception as e:
+            print(f"  ⚠ Proxy IP lookup failed: {str(e)[:40]}")
+        
+        return "Proxy (Unknown Location)"
 
     def _get_next_api_key(self):
         """Round-robin through available API keys"""
@@ -158,7 +176,7 @@ class UnifiedScraper:
                     product.ebazaar_selling_price = selling
                 
                 products.append(product)
-                print(f"  ✓ Done: Method={product.amazon_method}, IP={product.amazon_ip_location[:30]}...")
+                print(f"  ✓ Done: Method={product.amazon_method}, IP={product.amazon_ip_location}")
                 print(f"         MRP(A)={product.amazon_mrp}, SP(A)={product.amazon_selling_price}, "
                       f"MRP(E)={product.ebazaar_mrp}, SP(E)={product.ebazaar_selling_price}")
                 
@@ -298,13 +316,12 @@ class UnifiedScraper:
                     
                     if 'captcha' in html.lower():
                         print("  ⚠ CAPTCHA detected")
-                        return "CAPTCHA", "CAPTCHA", "ScraperAPI Proxy"
+                        return "CAPTCHA", "CAPTCHA", "Proxy (CAPTCHA)"
                     
                     mrp, selling = self._parse_amazon_prices(html)
                     
-                    # Get ScraperAPI proxy IP (optional - uses 1 API credit)
-                    # ip_loc = await self._get_scraperapi_ip(api_key)
-                    ip_loc = "ScraperAPI Proxy"  # Use this to save API credits
+                    # Get actual ScraperAPI proxy location (uses 1 extra API credit, cached per key)
+                    ip_loc = await self._get_scraperapi_ip(api_key, key_id)
                     
                     print(f"  Amazon: MRP={mrp}, Selling={selling}")
                     return mrp, selling, ip_loc
