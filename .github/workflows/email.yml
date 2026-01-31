@@ -1,4 +1,4 @@
-name: EB Scraper with Email Notification
+scraper: EB Scraper with Email Notification
 on:
   schedule:
     - cron: "0 0 */3 * *"  
@@ -22,7 +22,7 @@ jobs:
     
     
     - name: Run scraper
-      run: python scraper.py
+      run: python amazon_scraper.py
     
     - name: Check if data file exists
       id: check_file
