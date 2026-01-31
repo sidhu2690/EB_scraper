@@ -1,4 +1,4 @@
-scraper: EB Scraper with Email Notification
+name: email
 on:
   schedule:
     - cron: "0 0 */3 * *"  
