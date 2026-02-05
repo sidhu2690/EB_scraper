@@ -1,78 +1,182 @@
+AMAZON LAPTOP BESTSELLERS - WEEKLY CHANGES REPORT
 ============================================================
-AMAZON LAPTOP BESTSELLERS - WEEKLY ANALYSIS REPORT
+
+============================================================
+1. RANK CHANGES (Products in both weeks)
 ============================================================
 
-Comparing: Last Week's Data vs Today's Data
-------------------------------------------------------------
+📈 MOVED UP IN RANK:
+Product                                            Last Week    Now          Change
+-------------------------------------------------------------------------------------
+acer Chromebook 315 CB315-4H-P8FZ 15.6" Chromebook ComfyView | Intel P #93          #83          ⬆️ +10
+Lenovo 300E G2 11.6"" Touch Laptop Intel Celeron N4120 4GB RAM 128GB S #80          #73          ⬆️ +7
+Apple 2021 MacBook Pro with Apple M1 Pro Chip (16-inch, 32GB RAM, 1TB  #68          #62          ⬆️ +6
+Dell Latitude 7490 Business Laptop, Intel Core i7-8650U, 16GB DDR4 RAM #77          #71          ⬆️ +6
+Lenovo Thinkpad T14 Gen 2 14" Touchscreen Laptop, i5 1145G7 2.6Ghz, 16 #72          #67          ⬆️ +5
+acer Nitro V 16 AI Gaming Laptop, 16" WUXGA IPS180Hz Display, AMD Ryze #66          #61          ⬆️ +5
+Apple 2024 MacBook Air with Apple M3 Chip, 15-inch, 8GB RAM, 256GB SSD #55          #52          ⬆️ +3
+HP Stream 14" HD Laptop, Intel Processor N150, 4GB RAM, 128GB UFS, Int #79          #76          ⬆️ +3
+Apple Late 2021 MacBook Pro with Apple M1 Pro chip 10-core CPU, 16-inc #96          #93          ⬆️ +3
+Microsoft Surface Go 10.5" Tablet 2-in-1 Touch-Screen 4GB RAM 64GB Sto #69          #66          ⬆️ +3
+Dell Latitude 5430 (Latest Model) 14" Laptop Intel Core i5-1245U (10-C #52          #49          ⬆️ +3
+HP 14" HD Laptop, Windows 11, Intel Celeron Dual-Core Processor Up to  #37          #34          ⬆️ +3
+Apple 2023 14-inch MacBook Pro with Apple M3 Pro chip, 18GB RAM, 512GB #58          #55          ⬆️ +3
+Apple MacBook Air MJVE2LL/A 13-inch Laptop (1.6GHz Core i5,8GB RAM,128 #50          #47          ⬆️ +3
+Microsoft Surface Laptop 3 13.5", Intel Core i7-1065G7 256GB SSD 16GB  #32          #30          ⬆️ +2
+Apple 2024 MacBook Pro with Apple M4 Pro Chip (14-inch, 24GB RAM, 512G #94          #92          ⬆️ +2
+HP Chromebook x360 11 G3 EE 11.6" Touchscreen 2 in 1 Chromebook - Inte #87          #85          ⬆️ +2
+Dell Latitude 7420 FHD Laptop Notebook with Intel Core i7 11th Gen Pro #16          #14          ⬆️ +2
+HP EliteBook 840 G8 14", Intel Core i5-1145G7, 16GB RAM, 256GB SSD (Re #97          #95          ⬆️ +2
+Lenovo 100e 81ER000BUS 11.6" HD Chromebook, Intel Dual-Core Celeron N3 #21          #20          ⬆️ +1
+ASUS CX1500CNA Chromebook 15.6" HD Laptop, Intel Celeron N3350 Process #29          #28          ⬆️ +1
+HP Chromebook 11A G8 Education Edition AMD A4-9120C 4GB DDR4-1866 SDRA #10          #9           ⬆️ +1
+Apple 2020 MacBook Pro with 2.3 GHz Intel Core i7 (13-inch, 16GB RAM,  #45          #44          ⬆️ +1
+Dell Latitude 3190 11.6" HD 2-in-1 Touchscreen Laptop Intel N5030 1.1G #5           #4           ⬆️ +1
+Dell Latitude 7430 14" Laptop (Latest Latitude 2023) Intel 12th Gen Co #98          #97          ⬆️ +1
+Apple MacBook Pro Late 2019 with 2.6GHz Intel Core i7 (16 inch, 16GB R #33          #32          ⬆️ +1
+Dell Latitude 5400 Laptop | 14"" 1920x1080 FHD | Core i5-8365U - 256GB #26          #25          ⬆️ +1
+Apple 2024 MacBook Air with Apple M3 Chip, 13-inch, 16GB RAM, 512GB SS #28          #27          ⬆️ +1
+HP Portable 13.8" HD IPS Laptop, Intel Celeron N Processor Up to 2.78G #51          #50          ⬆️ +1
+Panasonic Toughbook CF-33 MK1, Rugged 2-in-1, Intel Core i5-7300U up t #99          #98          ⬆️ +1
+Acer Chromebook Spin 311 R721T-62ZQ 11.6" Touchscreen 2 in 1 Chromeboo #82          #81          ⬆️ +1
+Dell Latitude 5410 14" FHD Business Notebook PC (1920 x 1080), Intel 1 #83          #82          ⬆️ +1
+ASUS Chromebook Flip CX5 14" Touchscreen FHD NanoEdge Display Intel Co #44          #43          ⬆️ +1
+Dell Latitude 7420 Business Laptop, Touchscreen Notebook, 14" FHD(1920 #42          #41          ⬆️ +1
+HP 2023 Premium 2-in-1 Convertible Laptop, 11" HD IPS Touchscreen, Int #85          #84          ⬆️ +1
+Lenovo 500e Chromebook 2nd Gen 81MC001EUS 11.6" Touchscreen 2 in 1 Chr #41          #40          ⬆️ +1
+Apple MacBook Pro Late 2021 with Apple M1 Pro chip (16-inch, 16GB RAM, #22          #21          ⬆️ +1
+Microsoft Surface Laptop 4 - i7-1185G7 16GB RAM, 512GB SSD, 13.5" High #76          #75          ⬆️ +1
+Apple 2025 MacBook Air with Apple M4 Chip, 13-inch, 16GB Unified Memor #30          #29          ⬆️ +1
+Dell Latitude 5420 14" FHD Business Laptop Computer, Quad-Core i7-1185 #61          #60          ⬆️ +1
+Lenovo 500e Chromebook 2-in-1 Laptop, 11.6in HD Touch, Intel Celeron N #70          #69          ⬆️ +1
+2023 Apple MacBook Air with Apple M2 Chip with 8-Core CPU/10-Core GPU  #25          #24          ⬆️ +1
 
-Subject: Weekly Amazon Best Sellers Laptop Analysis
+📉 MOVED DOWN IN RANK:
+Product                                            Last Week    Now          Change
+-------------------------------------------------------------------------------------
+Dell Inspiron 15 Business Laptop, 15.6" FHD Touchscreen, Intel 10-Core #67          #80          ⬇️ -13
+Apple 2024 MacBook Pro with Apple M4 Pro Chip (16-inch, 24GB RAM, 512G #81          #88          ⬇️ -7
+Apple 13in MacBook Pro, Retina, Touch Bar, 3.1GHz Intel Core i5 Dual C #49          #56          ⬇️ -7
+Apple Macbook Air 2017 with 1.8GHz Intel Core i5 (13-inch, 8GB RAM, 12 #27          #33          ⬇️ -6
+HP Stream 14" HD BrightView Laptop, Intel Celeron N4120 Processor, 16G #65          #70          ⬇️ -5
+Dell Latitude 5400 14"" HD, Core i5-8265U 1.6GHz, 32GB RAM, 1TB M.2-NV #47          #51          ⬇️ -4
+HP 15.6", Laptop Intel Pentium Processor 4GB RAM, 128GB UFS, Scarlet R #64          #68          ⬇️ -4
+Apple 2017 MacBook Air with 1.8GHz Core i5 CPU 13-inch 8GB RAM 128 GB  #75          #78          ⬇️ -3
+Microsoft Surface Laptop Go 2 12.4" Laptop, Core i5, 256GB SSD, 16GB R #74          #77          ⬇️ -3
+Dell Chromebook 11 3100 11.6" Touchscreen 2 in 1 Chromebook - HD - 136 #60          #63          ⬇️ -3
+Dell Latitude 3120 Laptop | 11.6" 1366x768 HD | Pentium - N6000-128GB  #62          #65          ⬇️ -3
+Dell Chromebook 3100 11.6" HD, Celeron N4000 1.1GHz, 4GB RAM, 16GB Sol #91          #94          ⬇️ -3
+Lenovo ThinkPad L15 (Latest Model) Ryzen 5 PRO 5650U 6-Core 256GB SSD  #84          #87          ⬇️ -3
+HP 14" HD Laptop, Windows 11, Intel Celeron Dual-Core Processor Up to  #40          #42          ⬇️ -2
+HP 14" HD Laptop, Windows 11, Intel Celeron Dual-Core Processor Up to  #24          #26          ⬇️ -2
+New Apple MacBook Pro (13-inch, 8GB RAM, 256GB Storage) - Space Gray ( #20          #22          ⬇️ -2
+Apple MacBook Air MD711LL/B 11.6in Widescreen LED Backlit HD Laptop, I #43          #45          ⬇️ -2
+Acer 315 15.6" Chromebook Intel Celeron N4500 1.1GHz 4GB RAM 64GB Flas #35          #37          ⬇️ -2
+HP Chromebook 14A G5 Laptop 14" HD 1366 x 768 AMD A4-9120C Processor A #57          #58          ⬇️ -1
+Lenovo ThinkPad L14 Ryzen 5 PRO 7530U 6-Core 256GB SSD 16GB RAM FHD (1 #73          #74          ⬇️ -1
+Dell Latitude 5500 15.6" Business Laptop - Intel 8th Gen Core i5-8365U #88          #89          ⬇️ -1
+Apple 2020 MacBook Air with 1.1GHz Intel Core i3, 13-inch, 8GB RAM, 12 #4           #5           ⬇️ -1
+Dell Latitude 5520 Business Laptop 15.6" HD, Intel i7-1165G7, 32GB RAM #89          #90          ⬇️ -1
+Apple MacBook Air MJVM2LL/A 11.6-Inch Laptop (1.6 GHz Intel Core i5, 1 #34          #35          ⬇️ -1
+Apple MacBook Pro 2021 with Apple M1 Pro chip (14-inch, 16GB RAM, 512G #14          #15          ⬇️ -1
+Apple Mid 2017 MacBook Pro with 2.8GHz Intel Core i7, 15.4-inch, 16GB  #90          #91          ⬇️ -1
+ASUS Lightweight 15.5" Full HD Laptop, Windows 11 Home OS, Intel Celer #63          #64          ⬇️ -1
+Apple 2019 MacBook Air with 1.6GHz Intel Core i5 (13-inch, 8GB RAM, 12 #15          #16          ⬇️ -1
+Microsoft Surface Laptop Go 12.4" Laptop, 16GB RAM, 256GB SSD, Platinu #78          #79          ⬇️ -1
+Apple MacBook Pro 15" Retina Core i7 2.6GHz MLH32LL/A with Touch Bar,  #71          #72          ⬇️ -1
+Lenovo Thinkpad T14 (Gen 1) 14" Laptop, i5 10310U 1.7Ghz, 16GB DDR4, 5 #56          #57          ⬇️ -1
+Apple MacBook Air (13-inch Retina display, 1.6GHz dual-core Intel Core #9           #10          ⬇️ -1
+HP 2025 Portable x360 Chromebook, 14'' Convertible FHD IPS Touchscreen #95          #96          ⬇️ -1
 
-Dear Team,
+➡️ NO RANK CHANGE: 23 products
 
-This report analyzes the COMPLETE Amazon Best Sellers Laptop data from two time periods: Last Week's Data and Today's Data. The analysis covers ranking changes, price analysis, market trends, notable observations, and recommendations.
+============================================================
+2. NEW PRODUCTS (Not in last week's list)
+============================================================
 
-### 1. Ranking Changes
+Rank     Price        Product
+--------------------------------------------------------------------------------
+#99      $51.00       HP Chromebook 11A G6 EE Laptop, AMD A4-9120C GPU, Chrome OS, 4GB RAM, 
+#100     $559.90      Apple Late 2019 MacBook Pro with 2.3GHz Intel Core i9 (16-inch, 32GB R
 
-* **Significant Rank Increases:**
-	+ Apple MacBook Air MD711LL/B 11.6in Widescreen LED Backlit HD Laptop (from #43 to #45, but price increased from $119.99 to $184.46)
-	+ Apple 2019 MacBook Pro with 2.3GHz Intel Core i9 (new entry at #100)
-* **Dropped in Rank:**
-	+ Dell Latitude 5400 Laptop, 14-inch HD Business Laptop (fell off the list, previously #92)
-	+ Acer Chromebook 11 C732-C6WU 11.6" LCD Chromebook (fell off the list, previously #100)
-* **New Entries:**
-	+ Apple Late 2019 MacBook Pro with 2.3GHz Intel Core i9 (ranked #100)
-	+ HP Chromebook 11A G6 EE Laptop, AMD A4-9120C GPU (ranked #99)
-* **Products No Longer in List:**
-	+ Dell Latitude 5400 Laptop, 14-inch HD Business Laptop
-	+ Acer Chromebook 11 C732-C6WU 11.6" LCD Chromebook
+============================================================
+3. REMOVED PRODUCTS (Were in last week, now gone)
+============================================================
 
-### 2. Price Analysis
+Was Rank   Price        Product
+--------------------------------------------------------------------------------
+#92        $220.60      Dell Latitude 5400 Laptop, 14-inch HD Business Laptop, Core i5-8265U, 
+#100       $52.99       Acer Chromebook 11 C732-C6WU 11.6" LCD Chromebook - Intel Celeron N335
 
-* **Biggest Price Drops:**
-	+ Apple 2025 MacBook Air with Apple M4 Chip (from $829.00 to $799.00, -$30.00)
-	+ Microsoft Surface Laptop 4 - i7-1185G7 (from $399.90 to $379.99, -$19.91)
-* **Price Increases:**
-	+ Apple MacBook Air MD711LL/B 11.6in Widescreen LED Backlit HD Laptop (from $119.99 to $184.46, +$64.47)
-	+ Apple 2019 MacBook Pro with 2.3GHz Intel Core i9 (from $469.00 to $529.00, +$60.00)
-* **Overall Price Trend:**
-	+ The average price increased from $342.07 to $346.45, indicating a slight upward trend.
-* **Best Value Products:**
-	+ Apple 2020 MacBook Air with 1.1GHz Intel Core i3 (ranked #5, priced at $279.97)
-	+ Dell Latitude 3190 11.6" HD 2-in-1 Touchscreen Laptop (ranked #4, priced at $149.99)
+============================================================
+4. PRICE CHANGES (Same product, different price)
+============================================================
 
-### 3. Market Trends
+💰 PRICE DECREASED:
+Product                                  Rank   Was        Now        Change
+-------------------------------------------------------------------------------------
+Apple 2025 MacBook Air with Apple M4 Chi #29    $829.00    $799.00    -$30.00 (-3.6%)
+Microsoft Surface Laptop 4 - i7-1185G7 1 #75    $399.90    $379.99    -$19.91 (-5.0%)
+Apple 2020 MacBook Air with 1.1GHz Intel #5     $297.00    $279.97    -$17.03 (-5.7%)
+Lenovo Thinkpad T14 (Gen 1) 14" Laptop,  #57    $323.99    $309.99    -$14.00 (-4.3%)
+Apple Macbook Air 2017 with 1.8GHz Intel #33    $179.00    $166.72    -$12.28 (-6.9%)
+Apple 2024 MacBook Air with Apple M3 Chi #27    $849.00    $839.00    -$10.00 (-1.2%)
+Apple 2019 MacBook Air with 1.6GHz Intel #16    $279.00    $269.00    -$10.00 (-3.6%)
+Lenovo 500e Chromebook 2-in-1 Laptop, 11 #69    $64.99     $58.99     -$6.00 (-9.2%)
+Late 2020 Apple MacBook Air with Apple M #3     $387.00    $383.00    -$4.00 (-1.0%)
+HP Chromebook x360 11 G3 EE 11.6" Touchs #85    $92.95     $89.95     -$3.00 (-3.2%)
+Apple MacBook Pro Late 2021 with Apple M #21    $768.00    $765.00    -$3.00 (-0.4%)
+Apple MacBook Pro 2020 with Apple M1 Chi #8     $449.00    $447.00    -$2.00 (-0.4%)
+HP EliteBook 840 G8 14", Intel Core i5-1 #95    $242.44    $242.00    -$0.44 (-0.2%)
+Apple Mid 2017 MacBook Pro with 2.8GHz I #91    $294.30    $294.00    -$0.30 (-0.1%)
+Lenovo 100E Chromebook 2ND Gen 81QB000AU #18    $51.18     $51.10     -$0.08 (-0.2%)
 
-* **Brand Performance:**
-	+ Apple remains dominant, with 34 products in the top 100.
-	+ Dell and HP have 23 and 17 products, respectively.
-* **Price Range Distribution:**
-	+ The $200-$400 price range has the most products (44), indicating a strong demand for mid-range laptops.
-* **Product Categories:**
-	+ Chromebooks are still popular, with 15 products in the top 100.
-	+ MacBooks and Windows laptops are also well-represented, with 34 and 51 products, respectively.
+💸 PRICE INCREASED:
+Product                                  Rank   Was        Now        Change
+-------------------------------------------------------------------------------------
+Apple MacBook Air MD711LL/B 11.6in Wides #45    $119.99    $184.46    +$64.47 (+53.7%)
+Apple 2019 MacBook Pro with 2.3GHz Intel #59    $469.00    $529.00    +$60.00 (+12.8%)
+Apple MacBook Pro Late 2019 with 2.6GHz  #32    $439.99    $482.73    +$42.74 (+9.7%)
+Samsung Chromebook 4 Chrome OS 11.6-inch #19    $64.99     $87.00     +$22.01 (+33.9%)
+Apple MacBook Air MJVM2LL/A 11.6-Inch La #35    $155.00    $169.00    +$14.00 (+9.0%)
+Dell Chromebook 3100 11.6" HD, Celeron N #94    $59.99     $69.99     +$10.00 (+16.7%)
+Dell Latitude 5410 14" FHD Business Note #82    $225.90    $229.90    +$4.00 (+1.8%)
+Dell Latitude 5500 15.6" Business Laptop #89    $287.96    $288.99    +$1.03 (+0.4%)
+Lenovo 11.6" 300e Chromebook Touchscreen #11    $56.49     $56.86     +$0.37 (+0.7%)
+Dell Latitude 5400 Laptop FHD Touchscree #17    $345.79    $345.89    +$0.10 (+0.0%)
+HP 14" HD Laptop, Windows 11, Intel Cele #26    $175.98    $175.99    +$0.01 (+0.0%)
+Dell Latitude 5400 14 inches 8th Gen Cor #36    $289.57    $289.58    +$0.01 (+0.0%)
 
-### 4. Notable Observations
+➡️ NO PRICE CHANGE: 71 products
 
-* **Seasonal Patterns:**
-	+ No apparent seasonal patterns in this week's data.
-* **Surprising Changes:**
-	+ The significant price increase of Apple MacBook Air MD711LL/B 11.6in Widescreen LED Backlit HD Laptop.
-* **Product Categories:**
-	+ Gaming laptops are not well-represented in the top 100, with only 2 products.
+============================================================
+SUMMARY
+============================================================
+Total products last week: 100
+Total products this week: 100
+Products in both weeks: 98
+New products: 2
+Removed products: 2
+Products moved up: 42
+Products moved down: 33
+Price decreased: 15
+Price increased: 12
 
-### 5. Recommendations
 
-* **Best Deals:**
-	+ Apple 2025 MacBook Air with Apple M4 Chip (from $829.00 to $799.00, -$30.00)
-	+ Microsoft Surface Laptop 4 - i7-1185G7 (from $399.90 to $379.99, -$19.91)
-* **Products to Watch:**
-	+ Apple Late 2019 MacBook Pro with 2.3GHz Intel Core i9 (new entry at #100)
-	+ HP Chromebook 11A G6 EE Laptop, AMD A4-9120C GPU (new entry at #99)
-* **Buying Recommendations:**
-	+ Apple 2020 MacBook Air with 1.1GHz Intel Core i3 (ranked #5, priced at $279.97)
-	+ Dell Latitude 3190 11.6" HD 2-in-1 Touchscreen Laptop (ranked #4, priced at $149.99)
+============================================================
+AI ANALYSIS
+============================================================
 
-This analysis provides insights into the Amazon Best Sellers Laptop market, highlighting ranking changes, price trends, and market trends. The recommendations section provides guidance on the best deals and products to watch.
+Here is a brief summary of the changes:
 
-Best regards,
-[Your Name]
+* **Rank Changes:**
+  * Biggest movers: Dell Inspiron 15 Business Laptop (down 13), Apple 2024 MacBook Pro (down 7), acer Chromebook 315 (up 10)
+* **New Products:**
+  * HP Chromebook 11A G6 EE Laptop (rank #99)
+  * Apple Late 2019 MacBook Pro (rank #100)
+* **Price Changes:**
+  * Significant price drops: Apple 2025 MacBook Air (-$30), Microsoft Surface Laptop 4 (-$19.91)
+  * Significant price increases: Apple MacBook Air MD711LL/B (+$64.47), Apple 2019 MacBook Pro (+$60)
+* **Patterns:**
+  * Many Apple products had small price changes (increases or decreases)
+  * Several Dell and HP products moved up or down in rank by small amounts (1-3 positions)
