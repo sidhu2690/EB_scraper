@@ -72,7 +72,8 @@ jobs:
         username: ${{ secrets.EMAIL_USERNAME }}
         password: ${{ secrets.EMAIL_PASSWORD }}
         subject: Weekly Amazon Laptop Analysis Report - ${{ github.run_id }}
-        to: ${{ secrets.CC_EMAIL }}
+        to: ${{ secrets.RECIPIENT_EMAIL }}
+        cc: ${{ secrets.CC_EMAIL }}
         from: Amazon Scraper Bot
         body: |
           Hi,
@@ -116,3 +117,22 @@ jobs:
         fi
         git diff --staged --quiet || git commit -m "Update weekly.csv and summary - $(date +'%Y-%m-%d %H:%M')"
         git push
+
+    # STEP 7: Notify on failure
+    - name: Notify on failure
+      if: failure()
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        username: ${{ secrets.EMAIL_USERNAME }}
+        password: ${{ secrets.EMAIL_PASSWORD }}
+        subject: ⚠️ Weekly Amazon Scraper Failed
+        to: ${{ secrets.CC_EMAIL }}
+        from: Amazon Scraper Bot
+        body: |
+          Warning: The weekly Amazon scraper workflow has failed.
+          
+          Please check the logs in GitHub Actions to investigate the issue.
+          
+          Run ID: ${{ github.run_id }}
