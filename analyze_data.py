@@ -25,310 +25,286 @@ def clean_dataframe(df):
     }
     df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
     
-    # Clean price column - remove $, commas, and convert to float
+    # Clean price column
     if 'price' in df.columns:
         df['price'] = df['price'].astype(str).str.replace('$', '', regex=False)
         df['price'] = df['price'].str.replace(',', '', regex=False)
         df['price'] = df['price'].str.strip()
         df['price'] = pd.to_numeric(df['price'], errors='coerce')
     
-    # Clean rating column
-    if 'rating' in df.columns:
-        df['rating'] = pd.to_numeric(df['rating'], errors='coerce')
-    
-    # Clean reviews column
-    if 'reviews' in df.columns:
-        df['reviews'] = df['reviews'].astype(str).str.replace(',', '', regex=False)
-        df['reviews'] = pd.to_numeric(df['reviews'], errors='coerce')
-    
     return df
 
-def format_product_list(df, label):
-    """Format complete product list with rank, name, and price"""
-    df = clean_dataframe(df)
-    
-    output = f"\n{'='*60}\n{label}\n{'='*60}\n"
-    output += f"Total Products: {len(df)}\n\n"
-    output += f"{'Rank':<6} {'Price':<12} {'Product Name'}\n"
-    output += f"{'-'*6} {'-'*12} {'-'*50}\n"
-    
-    for _, row in df.iterrows():
-        rank = row.get('rank', 'N/A')
-        price = row.get('price', None)
-        price_str = f"${price:.2f}" if pd.notna(price) else "N/A"
-        name = row.get('name', 'N/A')
-        # Truncate name if too long to save tokens but keep it meaningful
-        if len(str(name)) > 80:
-            name = str(name)[:77] + "..."
-        output += f"{rank:<6} {price_str:<12} {name}\n"
-    
-    # Add price statistics
-    if 'price' in df.columns:
-        price_data = df['price'].dropna()
-        if len(price_data) > 0:
-            output += f"\n--- Price Statistics ---\n"
-            output += f"Average: ${price_data.mean():.2f}\n"
-            output += f"Min: ${price_data.min():.2f}\n"
-            output += f"Max: ${price_data.max():.2f}\n"
-            output += f"Median: ${price_data.median():.2f}\n"
-    
-    # Add rating statistics
-    if 'rating' in df.columns:
-        rating_data = df['rating'].dropna()
-        if len(rating_data) > 0:
-            output += f"\n--- Rating Statistics ---\n"
-            output += f"Average Rating: {rating_data.mean():.2f}\n"
-            output += f"Highest: {rating_data.max():.2f}\n"
-            output += f"Lowest: {rating_data.min():.2f}\n"
-    
-    return output
-
-def create_comparison_table(weekly_df, daily_df):
-    """Create a side-by-side comparison of products that changed"""
+def create_focused_comparison(weekly_df, daily_df):
+    """Create comparison focused on rank changes, new products, and price changes"""
     weekly_df = clean_dataframe(weekly_df)
     daily_df = clean_dataframe(daily_df)
     
-    comparison = "\n" + "="*60 + "\n"
-    comparison += "SIDE-BY-SIDE COMPARISON\n"
-    comparison += "="*60 + "\n\n"
+    output = ""
     
-    # Create lookup by product name (or ASIN if available)
+    # Create lookup dictionaries using ASIN (more reliable) or name
+    if 'asin' in weekly_df.columns and 'asin' in daily_df.columns:
+        key_col = 'asin'
+    else:
+        key_col = 'name'
+    
     weekly_products = {}
     for _, row in weekly_df.iterrows():
-        name = str(row.get('name', ''))[:50]  # Use first 50 chars as key
-        weekly_products[name] = {
+        key = str(row.get(key_col, ''))
+        weekly_products[key] = {
             'rank': row.get('rank'),
             'price': row.get('price'),
-            'rating': row.get('rating')
+            'name': row.get('name', '')[:70]
         }
     
     daily_products = {}
     for _, row in daily_df.iterrows():
-        name = str(row.get('name', ''))[:50]
-        daily_products[name] = {
+        key = str(row.get(key_col, ''))
+        daily_products[key] = {
             'rank': row.get('rank'),
             'price': row.get('price'),
-            'rating': row.get('rating')
+            'name': row.get('name', '')[:70]
         }
     
-    # Find products in both weeks
-    common_products = set(weekly_products.keys()) & set(daily_products.keys())
+    # Find product sets
+    common = set(weekly_products.keys()) & set(daily_products.keys())
     new_products = set(daily_products.keys()) - set(weekly_products.keys())
     removed_products = set(weekly_products.keys()) - set(daily_products.keys())
     
-    comparison += f"Products in both weeks: {len(common_products)}\n"
-    comparison += f"New products this week: {len(new_products)}\n"
-    comparison += f"Products no longer in list: {len(removed_products)}\n\n"
+    # ===== SECTION 1: RANK CHANGES =====
+    output += "="*60 + "\n"
+    output += "1. RANK CHANGES (Products in both weeks)\n"
+    output += "="*60 + "\n\n"
     
-    # Show price changes for common products
-    comparison += "--- Price Changes (Common Products) ---\n"
-    comparison += f"{'Product':<40} {'Last Week':<12} {'This Week':<12} {'Change'}\n"
-    comparison += "-"*80 + "\n"
+    rank_changes = []
+    for key in common:
+        old_rank = weekly_products[key]['rank']
+        new_rank = daily_products[key]['rank']
+        name = daily_products[key]['name']
+        if pd.notna(old_rank) and pd.notna(new_rank):
+            change = int(old_rank) - int(new_rank)  # Positive = moved UP
+            rank_changes.append((name, int(old_rank), int(new_rank), change))
+    
+    # Products that moved UP
+    moved_up = [(n, o, nw, c) for n, o, nw, c in rank_changes if c > 0]
+    moved_up.sort(key=lambda x: x[3], reverse=True)
+    
+    output += "📈 MOVED UP IN RANK:\n"
+    output += f"{'Product':<50} {'Last Week':<12} {'Now':<12} {'Change'}\n"
+    output += "-"*85 + "\n"
+    if moved_up:
+        for name, old, new, change in moved_up:
+            output += f"{name:<50} #{old:<11} #{new:<11} ⬆️ +{change}\n"
+    else:
+        output += "None\n"
+    
+    # Products that moved DOWN
+    moved_down = [(n, o, nw, c) for n, o, nw, c in rank_changes if c < 0]
+    moved_down.sort(key=lambda x: x[3])
+    
+    output += "\n📉 MOVED DOWN IN RANK:\n"
+    output += f"{'Product':<50} {'Last Week':<12} {'Now':<12} {'Change'}\n"
+    output += "-"*85 + "\n"
+    if moved_down:
+        for name, old, new, change in moved_down:
+            output += f"{name:<50} #{old:<11} #{new:<11} ⬇️ {change}\n"
+    else:
+        output += "None\n"
+    
+    # Products with NO change
+    no_change = [(n, o, nw, c) for n, o, nw, c in rank_changes if c == 0]
+    output += f"\n➡️ NO RANK CHANGE: {len(no_change)} products\n"
+    
+    # ===== SECTION 2: NEW PRODUCTS =====
+    output += "\n" + "="*60 + "\n"
+    output += "2. NEW PRODUCTS (Not in last week's list)\n"
+    output += "="*60 + "\n\n"
+    
+    if new_products:
+        output += f"{'Rank':<8} {'Price':<12} {'Product'}\n"
+        output += "-"*80 + "\n"
+        new_list = []
+        for key in new_products:
+            new_list.append((
+                daily_products[key]['rank'],
+                daily_products[key]['price'],
+                daily_products[key]['name']
+            ))
+        new_list.sort(key=lambda x: x[0] if pd.notna(x[0]) else 999)
+        for rank, price, name in new_list:
+            price_str = f"${price:.2f}" if pd.notna(price) else "N/A"
+            output += f"#{rank:<7} {price_str:<12} {name}\n"
+    else:
+        output += "No new products this week\n"
+    
+    # ===== SECTION 3: REMOVED PRODUCTS =====
+    output += "\n" + "="*60 + "\n"
+    output += "3. REMOVED PRODUCTS (Were in last week, now gone)\n"
+    output += "="*60 + "\n\n"
+    
+    if removed_products:
+        output += f"{'Was Rank':<10} {'Price':<12} {'Product'}\n"
+        output += "-"*80 + "\n"
+        removed_list = []
+        for key in removed_products:
+            removed_list.append((
+                weekly_products[key]['rank'],
+                weekly_products[key]['price'],
+                weekly_products[key]['name']
+            ))
+        removed_list.sort(key=lambda x: x[0] if pd.notna(x[0]) else 999)
+        for rank, price, name in removed_list:
+            price_str = f"${price:.2f}" if pd.notna(price) else "N/A"
+            output += f"#{rank:<9} {price_str:<12} {name}\n"
+    else:
+        output += "No products removed this week\n"
+    
+    # ===== SECTION 4: PRICE CHANGES =====
+    output += "\n" + "="*60 + "\n"
+    output += "4. PRICE CHANGES (Same product, different price)\n"
+    output += "="*60 + "\n\n"
     
     price_changes = []
-    for name in common_products:
-        old_price = weekly_products[name]['price']
-        new_price = daily_products[name]['price']
-        if pd.notna(old_price) and pd.notna(new_price):
+    for key in common:
+        old_price = weekly_products[key]['price']
+        new_price = daily_products[key]['price']
+        name = daily_products[key]['name']
+        new_rank = daily_products[key]['rank']
+        if pd.notna(old_price) and pd.notna(new_price) and old_price != new_price:
             change = new_price - old_price
-            pct_change = (change / old_price * 100) if old_price != 0 else 0
-            price_changes.append((name, old_price, new_price, change, pct_change))
+            pct = (change / old_price * 100) if old_price != 0 else 0
+            price_changes.append((name, new_rank, old_price, new_price, change, pct))
     
-    # Sort by absolute change
-    price_changes.sort(key=lambda x: abs(x[3]), reverse=True)
+    # Price DECREASED
+    price_down = [(n, r, o, nw, c, p) for n, r, o, nw, c, p in price_changes if c < 0]
+    price_down.sort(key=lambda x: x[4])
     
-    for name, old_price, new_price, change, pct_change in price_changes[:20]:  # Top 20 changes
-        change_str = f"${change:+.2f} ({pct_change:+.1f}%)"
-        comparison += f"{name[:40]:<40} ${old_price:<11.2f} ${new_price:<11.2f} {change_str}\n"
+    output += "💰 PRICE DECREASED:\n"
+    output += f"{'Product':<40} {'Rank':<6} {'Was':<10} {'Now':<10} {'Change'}\n"
+    output += "-"*85 + "\n"
+    if price_down:
+        for name, rank, old, new, change, pct in price_down:
+            output += f"{name[:40]:<40} #{rank:<5} ${old:<9.2f} ${new:<9.2f} -${abs(change):.2f} ({pct:.1f}%)\n"
+    else:
+        output += "None\n"
     
-    # Show new products
-    if new_products:
-        comparison += f"\n--- New Products This Week ---\n"
-        for name in list(new_products)[:15]:  # Show up to 15
-            price = daily_products[name]['price']
-            price_str = f"${price:.2f}" if pd.notna(price) else "N/A"
-            comparison += f"  • {name[:60]} - {price_str}\n"
+    # Price INCREASED
+    price_up = [(n, r, o, nw, c, p) for n, r, o, nw, c, p in price_changes if c > 0]
+    price_up.sort(key=lambda x: x[4], reverse=True)
     
-    # Show removed products
-    if removed_products:
-        comparison += f"\n--- Products No Longer in Top List ---\n"
-        for name in list(removed_products)[:15]:  # Show up to 15
-            price = weekly_products[name]['price']
-            price_str = f"${price:.2f}" if pd.notna(price) else "N/A"
-            comparison += f"  • {name[:60]} - {price_str}\n"
+    output += "\n💸 PRICE INCREASED:\n"
+    output += f"{'Product':<40} {'Rank':<6} {'Was':<10} {'Now':<10} {'Change'}\n"
+    output += "-"*85 + "\n"
+    if price_up:
+        for name, rank, old, new, change, pct in price_up:
+            output += f"{name[:40]:<40} #{rank:<5} ${old:<9.2f} ${new:<9.2f} +${change:.2f} (+{pct:.1f}%)\n"
+    else:
+        output += "None\n"
     
-    return comparison
+    # No price change count
+    no_price_change = len(common) - len(price_changes)
+    output += f"\n➡️ NO PRICE CHANGE: {no_price_change} products\n"
+    
+    # ===== SUMMARY STATS =====
+    output += "\n" + "="*60 + "\n"
+    output += "SUMMARY\n"
+    output += "="*60 + "\n"
+    output += f"Total products last week: {len(weekly_products)}\n"
+    output += f"Total products this week: {len(daily_products)}\n"
+    output += f"Products in both weeks: {len(common)}\n"
+    output += f"New products: {len(new_products)}\n"
+    output += f"Removed products: {len(removed_products)}\n"
+    output += f"Products moved up: {len(moved_up)}\n"
+    output += f"Products moved down: {len(moved_down)}\n"
+    output += f"Price decreased: {len(price_down)}\n"
+    output += f"Price increased: {len(price_up)}\n"
+    
+    return output
 
 def analyze_data():
-    """Analyze daily and weekly CSV data using Groq API"""
+    """Analyze weekly vs daily data using Groq API"""
     
-    # Load both CSV files
     daily_df = load_csv_data("data/data.csv")
     weekly_df = load_csv_data("data/weekly.csv")
     
-    if daily_df is None and weekly_df is None:
-        print("No data files found to analyze")
-        return None
-    
     if daily_df is None or weekly_df is None:
-        print("Need both daily and weekly data for comparison")
+        print("Need both weekly.csv and data.csv for comparison")
         return None
     
-    print("📊 Formatting complete data for analysis...")
+    print("📊 Creating focused comparison (ranks & prices only)...")
     
-    # Create complete product lists
-    weekly_list = format_product_list(weekly_df, "LAST WEEK'S COMPLETE DATA")
-    daily_list = format_product_list(daily_df, "TODAY'S COMPLETE DATA")
+    # Create the comparison data
+    comparison_data = create_focused_comparison(weekly_df, daily_df)
     
-    # Create comparison table
-    comparison = create_comparison_table(weekly_df, daily_df)
-    
-    # Build the prompt
-    prompt = """You are a data analyst specializing in e-commerce trends. I'm providing you with COMPLETE Amazon Best Sellers Laptop data from two time periods.
+    prompt = """Analyze this Amazon Laptop Bestseller comparison data. Focus ONLY on:
 
-IMPORTANT: 
-- "Last Week's Data" is from 7 days ago
-- "Today's Data" is the most recent scrape
-- Analyze ALL products, not just the top 10
+1. **Ranking Changes** - What moved up? What moved down? Any big jumps?
+2. **New Products** - What's new this week? At what rank did they enter?
+3. **Removed Products** - What dropped off? Were they previously high-ranked?
+4. **Price Changes** - Which products got cheaper? Which got more expensive?
 
+DO NOT include:
+- Recommendations
+- Brand analysis
+- General market commentary
+- Average price calculations
+
+Just summarize the CHANGES in a clear, concise format.
+
+DATA:
 """
-    prompt += weekly_list
-    prompt += "\n"
-    prompt += daily_list
-    prompt += "\n"
-    prompt += comparison
+    prompt += comparison_data
     
     prompt += """
 
-Based on the COMPLETE data above, provide a thorough analysis:
+Provide a brief, focused summary of:
+1. Most notable rank changes (biggest movers)
+2. Interesting new entries
+3. Significant price drops or increases
+4. Any patterns you notice in the changes
 
-1. **Ranking Changes**
-   - Which products moved up significantly in rank?
-   - Which products dropped in rank?
-   - New entries to the bestseller list
-   - Products that fell off the list
-
-2. **Price Analysis**
-   - Products with the biggest price drops (deals/sales?)
-   - Products with price increases
-   - Overall price trend direction
-   - Best value products (low price + good rank)
-
-3. **Market Trends**
-   - Which brands are gaining/losing ground?
-   - Price range distribution changes
-   - Are budget or premium laptops trending?
-
-4. **Notable Observations**
-   - Any surprising changes?
-   - Seasonal patterns if apparent
-   - Product categories doing well (Chromebooks, MacBooks, Gaming, etc.)
-
-5. **Recommendations**
-   - Best deals this week (price drops)
-   - Products to watch
-   - Buying recommendations
-
-Be specific with product names and numbers. Reference actual data from the lists.
-Format for an email report with clear sections."""
-
-    # Initialize Groq client
-    client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-    
-    try:
-        print("🤖 Sending complete data to Groq API...")
-        print(f"📝 Total prompt length: ~{len(prompt)} characters")
-        
-        completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            max_tokens=4000,
-            temperature=0.7
-        )
-        
-        analysis = completion.choices[0].message.content
-        print("✅ Analysis completed successfully")
-        return analysis
-        
-    except Exception as e:
-        print(f"❌ Error calling Groq API: {e}")
-        # If token limit exceeded, try with reduced data
-        if "token" in str(e).lower() or "limit" in str(e).lower():
-            print("⚠️ Token limit hit, trying with reduced data...")
-            return analyze_data_reduced(weekly_df, daily_df)
-        return None
-
-def analyze_data_reduced(weekly_df, daily_df):
-    """Fallback: Analyze with top 30 products if full data exceeds limits"""
-    print("📊 Using reduced dataset (top 30 products)...")
-    
-    weekly_df = clean_dataframe(weekly_df).head(30)
-    daily_df = clean_dataframe(daily_df).head(30)
-    
-    weekly_list = format_product_list(weekly_df, "LAST WEEK'S TOP 30")
-    daily_list = format_product_list(daily_df, "TODAY'S TOP 30")
-    comparison = create_comparison_table(weekly_df, daily_df)
-    
-    prompt = """Analyze this Amazon Laptop Bestseller data (Top 30 products):
-
-"""
-    prompt += weekly_list + "\n" + daily_list + "\n" + comparison
-    prompt += """
-
-Provide analysis of:
-1. Ranking changes
-2. Price changes (deals, increases)
-3. Brand trends
-4. Best value products
-5. Recommendations
-
-Be specific with product names and prices."""
+Keep it short and factual. Use bullet points."""
 
     client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
     
     try:
+        print("🤖 Sending to Groq API...")
+        
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=3000,
-            temperature=0.7
+            max_tokens=2000,
+            temperature=0.5
         )
-        return completion.choices[0].message.content
+        
+        analysis = completion.choices[0].message.content
+        print("✅ Analysis completed")
+        return comparison_data + "\n\n" + "="*60 + "\nAI ANALYSIS\n" + "="*60 + "\n\n" + analysis
+        
     except Exception as e:
-        print(f"❌ Reduced analysis also failed: {e}")
-        return None
+        print(f"❌ Error: {e}")
+        # Return just the raw comparison if API fails
+        return comparison_data + "\n\n[AI Analysis unavailable - raw data above]"
 
 def save_analysis(analysis):
-    """Save analysis to summary.txt file"""
+    """Save analysis to summary.txt"""
     if analysis:
         os.makedirs("data", exist_ok=True)
         with open("data/summary.txt", "w") as f:
-            f.write("=" * 60 + "\n")
-            f.write("AMAZON LAPTOP BESTSELLERS - WEEKLY ANALYSIS REPORT\n")
-            f.write("=" * 60 + "\n\n")
-            f.write("Comparing: Last Week's Data vs Today's Data\n")
-            f.write("-" * 60 + "\n\n")
+            f.write("AMAZON LAPTOP BESTSELLERS - WEEKLY CHANGES REPORT\n")
+            f.write("="*60 + "\n\n")
             f.write(analysis)
-        print("💾 Analysis saved to data/summary.txt")
+        print("💾 Saved to data/summary.txt")
         return True
     return False
 
 def main():
-    print("🔍 Starting weekly data analysis...")
-    print("📊 Comparing COMPLETE datasets: last week vs today...")
-    
+    print("🔍 Starting weekly comparison...")
     analysis = analyze_data()
-    
     if analysis:
         save_analysis(analysis)
-        print("✅ Weekly analysis complete")
+        print("✅ Done")
     else:
-        print("❌ Analysis failed - need both weekly.csv and data.csv")
+        print("❌ Failed")
 
 if __name__ == "__main__":
     main()
