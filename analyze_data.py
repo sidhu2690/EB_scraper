@@ -102,17 +102,17 @@ Use bullet points and clear headings for readability."""
         return None
 
 def save_analysis(analysis):
-    """Save analysis to a text file"""
+    """Save analysis to summary.txt file"""
     if analysis:
         os.makedirs("data", exist_ok=True)
-        with open("data/analysis_report.txt", "w") as f:
+        with open("data/summary.txt", "w") as f:
             f.write("=" * 60 + "\n")
             f.write("AMAZON LAPTOP BESTSELLERS - WEEKLY ANALYSIS REPORT\n")
             f.write("=" * 60 + "\n\n")
             f.write("Comparing: Last Week's Data vs Today's Data\n")
             f.write("-" * 60 + "\n\n")
             f.write(analysis)
-        print("💾 Analysis saved to data/analysis_report.txt")
+        print("💾 Analysis saved to data/summary.txt")
         return True
     return False
 
