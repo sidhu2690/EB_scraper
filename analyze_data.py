@@ -14,8 +14,40 @@ def load_csv_data(filepath):
         print(f"Error loading {filepath}: {e}")
         return None, None
 
+def clean_numeric_columns(df):
+    """Clean and convert price/rating columns to numeric"""
+    df = df.copy()
+    
+    # Rename columns to expected names if they exist
+    column_mapping = {
+        'k': 'rank',
+        'reviews_count': 'reviews'
+    }
+    df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
+    
+    # Clean price column - remove $, commas, and convert to float
+    if 'price' in df.columns:
+        df['price'] = df['price'].astype(str).str.replace('$', '', regex=False)
+        df['price'] = df['price'].str.replace(',', '', regex=False)
+        df['price'] = df['price'].str.strip()
+        df['price'] = pd.to_numeric(df['price'], errors='coerce')
+    
+    # Clean rating column
+    if 'rating' in df.columns:
+        df['rating'] = pd.to_numeric(df['rating'], errors='coerce')
+    
+    # Clean reviews column
+    if 'reviews' in df.columns:
+        df['reviews'] = df['reviews'].astype(str).str.replace(',', '', regex=False)
+        df['reviews'] = pd.to_numeric(df['reviews'], errors='coerce')
+    
+    return df
+
 def summarize_dataframe(df, label):
     """Create a concise summary of the dataframe for API consumption"""
+    # Clean numeric columns first
+    df = clean_numeric_columns(df)
+    
     summary = f"\n{label}:\n"
     summary += f"Total Products: {len(df)}\n\n"
     
@@ -24,25 +56,36 @@ def summarize_dataframe(df, label):
     for idx, row in df.head(10).iterrows():
         summary += f"{idx+1}. {row.get('name', 'N/A')}\n"
         summary += f"   Rank: {row.get('rank', 'N/A')} | "
-        summary += f"Price: ${row.get('price', 'N/A')} | "
-        summary += f"Rating: {row.get('rating', 'N/A')} ({row.get('reviews', 'N/A')} reviews)\n"
+        price_val = row.get('price', None)
+        price_str = f"${price_val:.2f}" if pd.notna(price_val) else "N/A"
+        summary += f"Price: {price_str} | "
+        rating_val = row.get('rating', 'N/A')
+        reviews_val = row.get('reviews', 'N/A')
+        summary += f"Rating: {rating_val} ({reviews_val} reviews)\n"
     
     # Add statistical summary
     summary += f"\nPrice Statistics:\n"
     if 'price' in df.columns:
-        summary += f"  Average: ${df['price'].mean():.2f}\n"
-        summary += f"  Min: ${df['price'].min():.2f}\n"
-        summary += f"  Max: ${df['price'].max():.2f}\n"
+        price_data = df['price'].dropna()
+        if len(price_data) > 0:
+            summary += f"  Average: ${price_data.mean():.2f}\n"
+            summary += f"  Min: ${price_data.min():.2f}\n"
+            summary += f"  Max: ${price_data.max():.2f}\n"
+        else:
+            summary += "  No valid price data available\n"
     
     summary += f"\nRating Statistics:\n"
     if 'rating' in df.columns:
-        summary += f"  Average Rating: {df['rating'].mean():.2f}\n"
-        summary += f"  Highest Rated: {df['rating'].max():.2f}\n"
+        rating_data = df['rating'].dropna()
+        if len(rating_data) > 0:
+            summary += f"  Average Rating: {rating_data.mean():.2f}\n"
+            summary += f"  Highest Rated: {rating_data.max():.2f}\n"
+        else:
+            summary += "  No valid rating data available\n"
     
     # Brand distribution (top 5)
     if 'name' in df.columns:
         summary += f"\nTop 5 Brands (by product count):\n"
-        # Extract brand from product name (first word usually)
         brands = df['name'].str.split().str[0].value_counts().head(5)
         for brand, count in brands.items():
             summary += f"  {brand}: {count} products\n"
