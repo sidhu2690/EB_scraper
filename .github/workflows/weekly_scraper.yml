@@ -54,24 +54,16 @@ jobs:
     - name: Check analysis file exists
       id: check_analysis
       run: |
-        if [ -f "data/analysis_report.txt" ]; then
+        if [ -f "data/summary.txt" ]; then
           echo "analysis_exists=true" >> $GITHUB_OUTPUT
+          echo "✅ Analysis summary created"
         else
           echo "analysis_exists=false" >> $GITHUB_OUTPUT
+          echo "⚠️ No analysis summary found"
         fi
 
-    - name: Read analysis report
-      if: steps.check_analysis.outputs.analysis_exists == 'true'
-      id: read_analysis
-      run: |
-        {
-          echo 'ANALYSIS_CONTENT<<EOF'
-          cat data/analysis_report.txt
-          echo EOF
-        } >> $GITHUB_ENV
-
-    # STEP 3: Send email BEFORE updating weekly.csv
-    - name: Send analysis email to CC
+    # STEP 3: Send email with summary.txt attachment
+    - name: Send analysis email
       if: steps.check_analysis.outputs.analysis_exists == 'true'
       uses: dawidd6/action-send-mail@v3
       with:
@@ -87,23 +79,13 @@ jobs:
           
           This is your weekly automated analysis report from the Amazon Laptop Scraper.
           
-          This report compares:
-          - Weekly data (from last week)
-          - Daily data (most recent)
+          Please find the detailed analysis summary attached.
           
-          ============================================================
-          
-          ${{ env.ANALYSIS_CONTENT }}
-          
-          ============================================================
-          
-          Please find both CSV files attached.
+          This report compares last week's data with today's data to identify trends and changes.
           
           Best regards,
           Amazon Scraper Bot
-        attachments: |
-          data/weekly.csv
-          data/data.csv
+        attachments: data/summary.txt
 
     # STEP 4: NOW run the scraper for NEXT week's comparison
     - name: Run scraper for next week
@@ -122,15 +104,15 @@ jobs:
           echo "❌ Scraper failed, weekly.csv not updated"
         fi
 
-    # STEP 6: Commit the updated weekly.csv
+    # STEP 6: Commit the updated weekly.csv and summary
     - name: Commit updated weekly data
       if: steps.update_weekly.outputs.weekly_updated == 'true'
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
         git add data/weekly.csv
-        if [ -f "data/analysis_report.txt" ]; then
-          git add data/analysis_report.txt
+        if [ -f "data/summary.txt" ]; then
+          git add data/summary.txt
         fi
-        git diff --staged --quiet || git commit -m "Update weekly.csv for next week - $(date +'%Y-%m-%d %H:%M')"
+        git diff --staged --quiet || git commit -m "Update weekly.csv and summary - $(date +'%Y-%m-%d %H:%M')"
         git push
