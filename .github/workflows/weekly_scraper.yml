@@ -28,22 +28,25 @@ jobs:
         pip install playwright playwright-stealth pandas groq
         playwright install chromium
         playwright install-deps chromium
-        
-    - name: Run scraper
-      run: python amazon_scraper.py
-        
-    - name: Rename to weekly.csv
+
+    # STEP 1: Check if we have existing data to analyze
+    - name: Check existing data files
+      id: check_files
       run: |
-        if [ -f "data/data.csv" ]; then
-          cp data/data.csv data/weekly.csv
-          echo "weekly_exists=true" >> $GITHUB_OUTPUT
+        if [ -f "data/weekly.csv" ] && [ -f "data/data.csv" ]; then
+          echo "both_exist=true" >> $GITHUB_OUTPUT
+          echo "✅ Both weekly.csv and data.csv exist - can analyze"
+        elif [ -f "data/data.csv" ]; then
+          echo "both_exist=false" >> $GITHUB_OUTPUT
+          echo "⚠️ Only data.csv exists - first run, will create weekly.csv"
         else
-          echo "weekly_exists=false" >> $GITHUB_OUTPUT
+          echo "both_exist=false" >> $GITHUB_OUTPUT
+          echo "⚠️ No data files exist yet"
         fi
-      id: create_weekly
-        
-    - name: Run Groq Analysis
-      if: steps.create_weekly.outputs.weekly_exists == 'true'
+
+    # STEP 2: Run analysis on EXISTING data (last week vs current daily)
+    - name: Run Groq Analysis on existing data
+      if: steps.check_files.outputs.both_exist == 'true'
       env:
         GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
       run: python analyze_data.py
@@ -56,18 +59,6 @@ jobs:
         else
           echo "analysis_exists=false" >> $GITHUB_OUTPUT
         fi
-        
-    - name: Commit weekly data
-      if: steps.create_weekly.outputs.weekly_exists == 'true'
-      run: |
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
-        git add data/weekly.csv
-        if [ -f "data/analysis_report.txt" ]; then
-          git add data/analysis_report.txt
-        fi
-        git diff --staged --quiet || git commit -m "Update weekly laptop data - $(date +'%Y-%m-%d %H:%M')"
-        git push
 
     - name: Read analysis report
       if: steps.check_analysis.outputs.analysis_exists == 'true'
@@ -79,6 +70,7 @@ jobs:
           echo EOF
         } >> $GITHUB_ENV
 
+    # STEP 3: Send email BEFORE updating weekly.csv
     - name: Send analysis email to CC
       if: steps.check_analysis.outputs.analysis_exists == 'true'
       uses: dawidd6/action-send-mail@v3
@@ -87,7 +79,7 @@ jobs:
         server_port: 587
         username: ${{ secrets.EMAIL_USERNAME }}
         password: ${{ secrets.EMAIL_PASSWORD }}
-        subject: Weekly Amazon Laptop Analysis Report
+        subject: Weekly Amazon Laptop Analysis Report - ${{ github.run_id }}
         to: ${{ secrets.CC_EMAIL }}
         from: Amazon Scraper Bot
         body: |
@@ -95,11 +87,50 @@ jobs:
           
           This is your weekly automated analysis report from the Amazon Laptop Scraper.
           
+          This report compares:
+          - Weekly data (from last week)
+          - Daily data (most recent)
+          
+          ============================================================
+          
           ${{ env.ANALYSIS_CONTENT }}
           
-          ---
-          Please find the weekly data CSV attached.
+          ============================================================
+          
+          Please find both CSV files attached.
           
           Best regards,
           Amazon Scraper Bot
-        attachments: data/weekly.csv
+        attachments: |
+          data/weekly.csv
+          data/data.csv
+
+    # STEP 4: NOW run the scraper for NEXT week's comparison
+    - name: Run scraper for next week
+      run: python amazon_scraper.py
+        
+    # STEP 5: Save new data as weekly.csv
+    - name: Update weekly.csv with fresh data
+      id: update_weekly
+      run: |
+        if [ -f "data/data.csv" ]; then
+          cp data/data.csv data/weekly.csv
+          echo "weekly_updated=true" >> $GITHUB_OUTPUT
+          echo "✅ weekly.csv updated with fresh data for next week"
+        else
+          echo "weekly_updated=false" >> $GITHUB_OUTPUT
+          echo "❌ Scraper failed, weekly.csv not updated"
+        fi
+
+    # STEP 6: Commit the updated weekly.csv
+    - name: Commit updated weekly data
+      if: steps.update_weekly.outputs.weekly_updated == 'true'
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add data/weekly.csv
+        if [ -f "data/analysis_report.txt" ]; then
+          git add data/analysis_report.txt
+        fi
+        git diff --staged --quiet || git commit -m "Update weekly.csv for next week - $(date +'%Y-%m-%d %H:%M')"
+        git push
