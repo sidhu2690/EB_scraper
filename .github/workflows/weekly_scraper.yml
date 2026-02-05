@@ -25,22 +25,81 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install playwright playwright-stealth pandas
+        pip install playwright playwright-stealth pandas groq
         playwright install chromium
         playwright install-deps chromium
         
     - name: Run scraper
       run: python amazon_scraper.py
         
-    - name: Rename to weekly.csv and commit
+    - name: Rename to weekly.csv
       run: |
         if [ -f "data/data.csv" ]; then
-          mv data/data.csv data/weekly.csv
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add data/weekly.csv
-          git diff --staged --quiet || git commit -m "Update weekly laptop data - $(date +'%Y-%m-%d %H:%M')"
-          git push
+          cp data/data.csv data/weekly.csv
+          echo "weekly_exists=true" >> $GITHUB_OUTPUT
         else
-          echo "No data file found, skipping commit"
+          echo "weekly_exists=false" >> $GITHUB_OUTPUT
         fi
+      id: create_weekly
+        
+    - name: Run Groq Analysis
+      if: steps.create_weekly.outputs.weekly_exists == 'true'
+      env:
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      run: python analyze_data.py
+      
+    - name: Check analysis file exists
+      id: check_analysis
+      run: |
+        if [ -f "data/analysis_report.txt" ]; then
+          echo "analysis_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "analysis_exists=false" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Commit weekly data
+      if: steps.create_weekly.outputs.weekly_exists == 'true'
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add data/weekly.csv
+        if [ -f "data/analysis_report.txt" ]; then
+          git add data/analysis_report.txt
+        fi
+        git diff --staged --quiet || git commit -m "Update weekly laptop data - $(date +'%Y-%m-%d %H:%M')"
+        git push
+
+    - name: Read analysis report
+      if: steps.check_analysis.outputs.analysis_exists == 'true'
+      id: read_analysis
+      run: |
+        {
+          echo 'ANALYSIS_CONTENT<<EOF'
+          cat data/analysis_report.txt
+          echo EOF
+        } >> $GITHUB_ENV
+
+    - name: Send analysis email to CC
+      if: steps.check_analysis.outputs.analysis_exists == 'true'
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        username: ${{ secrets.EMAIL_USERNAME }}
+        password: ${{ secrets.EMAIL_PASSWORD }}
+        subject: Weekly Amazon Laptop Analysis Report
+        to: ${{ secrets.CC_EMAIL }}
+        from: Amazon Scraper Bot
+        body: |
+          Hi,
+          
+          This is your weekly automated analysis report from the Amazon Laptop Scraper.
+          
+          ${{ env.ANALYSIS_CONTENT }}
+          
+          ---
+          Please find the weekly data CSV attached.
+          
+          Best regards,
+          Amazon Scraper Bot
+        attachments: data/weekly.csv
